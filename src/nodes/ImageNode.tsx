@@ -1,6 +1,7 @@
 import { useCallback, useContext, useRef, useState } from 'react'
 import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react'
 import { CanvasContext } from '../contexts/CanvasContext'
+import { CommentIcon } from '../components/icons'
 
 export type ImageNodeData = {
   imageUrl?: string
@@ -135,9 +136,7 @@ export function ImageNode({ id, data, selected }: NodeProps) {
             onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#6366f1')}
             onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#6b7280')}
           >
-            <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M14 1H2C1.45 1 1 1.45 1 2v9c0 .55.45 1 1 1h3v3l3-3h6c.55 0 1-.45 1-1V2c0-.55-.45-1-1-1z" />
-            </svg>
+            <CommentIcon size={12} />
           </button>
         </>
       ) : (

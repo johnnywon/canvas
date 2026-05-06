@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { TrashIcon } from '../components/icons'
 
 type Canvas = {
   id: string
@@ -8,11 +9,20 @@ type Canvas = {
   created_at: string
   updated_at: string
   role: 'owner' | 'editor' | 'viewer'
+  thumbnail_data: string | null
 }
 
-function formatDate(iso: string) {
-  const d = new Date(iso)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+type ThumbnailNode = { t: string; x: number; y: number; c: string; w: number; h: number }
+
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit',
+  })
+}
+
+function extractTags(name: string): string[] {
+  return (name.match(/#[\w가-힣]+/g) ?? []).map((t) => t.toLowerCase())
 }
 
 const ROLE_BADGE: Record<'editor' | 'viewer', { label: string; color: string; bg: string }> = {
@@ -26,6 +36,8 @@ export function CanvasList() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
+  const [activeTag, setActiveTag] = useState<string | null>(null)
+  const [confirming, setConfirming] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([
@@ -53,15 +65,30 @@ export function CanvasList() {
     }
   }, [navigate])
 
+  const deleteCanvas = useCallback(async (id: string) => {
+    await fetch(`/api/canvases/${id}`, { method: 'DELETE' })
+    setCanvases((cs) => cs.filter((c) => c.id !== id))
+    setConfirming(null)
+  }, [])
+
   const owned = canvases.filter((c) => c.role === 'owner')
   const shared = canvases.filter((c) => c.role !== 'owner')
+
+  const allTags = Array.from(new Set(canvases.flatMap((c) => extractTags(c.name)))).sort()
+
+  const filteredOwned = activeTag
+    ? owned.filter((c) => extractTags(c.name).includes(activeTag))
+    : owned
+  const filteredShared = activeTag
+    ? shared.filter((c) => extractTags(c.name).includes(activeTag))
+    : shared
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 font-sans">
       {/* Header */}
       <header className="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center">
+          <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center flex-shrink-0">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <rect x="1" y="1" width="5" height="5" rx="1" fill="white" opacity="0.9" />
               <rect x="8" y="1" width="5" height="5" rx="1" fill="white" opacity="0.6" />
@@ -69,7 +96,7 @@ export function CanvasList() {
               <rect x="8" y="8" width="5" height="5" rx="1" fill="white" opacity="0.3" />
             </svg>
           </div>
-          <span className="font-semibold text-gray-100 tracking-tight">Canvas</span>
+          <span className="font-semibold text-gray-100 tracking-tight">Pulse Ad Canvas</span>
         </div>
         <div className="flex items-center gap-4">
           {email && <span className="text-xs text-gray-500 hidden sm:block">{email}</span>}
@@ -93,19 +120,60 @@ export function CanvasList() {
           <EmptyState onCreate={createCanvas} creating={creating} />
         ) : (
           <div className="flex flex-col gap-10">
-            {owned.length > 0 && (
+            {/* Tag filter pills */}
+            {allTags.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {allTags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer border ${
+                      activeTag === tag
+                        ? 'bg-indigo-600 border-indigo-500 text-white'
+                        : 'bg-transparent border-gray-700 text-gray-400 hover:border-indigo-500 hover:text-indigo-400'
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {filteredOwned.length > 0 && (
               <Section title="My canvases">
-                {owned.map((canvas) => (
-                  <CanvasCard key={canvas.id} canvas={canvas} onClick={() => navigate(`/canvases/${canvas.id}`)} />
+                {filteredOwned.map((canvas) => (
+                  <CanvasCard
+                    key={canvas.id}
+                    canvas={canvas}
+                    confirming={confirming === canvas.id}
+                    onOpen={() => navigate(`/canvases/${canvas.id}`)}
+                    onDeleteRequest={() => setConfirming(canvas.id)}
+                    onDeleteConfirm={() => deleteCanvas(canvas.id)}
+                    onDeleteCancel={() => setConfirming(null)}
+                  />
                 ))}
               </Section>
             )}
-            {shared.length > 0 && (
+
+            {filteredShared.length > 0 && (
               <Section title="Shared with me">
-                {shared.map((canvas) => (
-                  <CanvasCard key={canvas.id} canvas={canvas} showOwner onClick={() => navigate(`/canvases/${canvas.id}`)} />
+                {filteredShared.map((canvas) => (
+                  <CanvasCard
+                    key={canvas.id}
+                    canvas={canvas}
+                    showOwner
+                    confirming={false}
+                    onOpen={() => navigate(`/canvases/${canvas.id}`)}
+                    onDeleteRequest={() => {}}
+                    onDeleteConfirm={() => {}}
+                    onDeleteCancel={() => {}}
+                  />
                 ))}
               </Section>
+            )}
+
+            {activeTag && filteredOwned.length === 0 && filteredShared.length === 0 && (
+              <p className="text-gray-500 text-sm">No canvases tagged {activeTag}.</p>
             )}
           </div>
         )}
@@ -123,38 +191,148 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function CanvasCard({ canvas, showOwner, onClick }: { canvas: Canvas; showOwner?: boolean; onClick: () => void }) {
-  const badge = canvas.role !== 'owner' ? ROLE_BADGE[canvas.role] : null
+function CanvasThumbnail({ data }: { data: string | null }) {
+  let nodes: ThumbnailNode[] = []
+  try {
+    if (data) nodes = JSON.parse(data) as ThumbnailNode[]
+  } catch { /* ignore */ }
 
-  return (
-    <button
-      onClick={onClick}
-      className="group text-left bg-gray-900 border border-gray-800 hover:border-indigo-500 rounded-xl p-5 transition-colors cursor-pointer"
-    >
-      <div className="w-full h-24 rounded-lg bg-gray-800 border border-gray-700 mb-4 flex items-center justify-center">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" className="text-gray-600">
+  if (!nodes.length) {
+    return (
+      <div className="w-full h-24 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" className="text-gray-700">
           <circle cx="9" cy="9" r="3" />
           <circle cx="17" cy="15" r="3" />
           <path d="M12 9h2M15 15H7" strokeLinecap="round" />
         </svg>
       </div>
+    )
+  }
 
-      <div className="flex items-start justify-between gap-2 mb-1">
-        <h3 className="font-semibold text-gray-100 group-hover:text-indigo-400 transition-colors truncate">
-          {canvas.name}
-        </h3>
-        {badge && (
-          <span style={{ fontSize: 10, fontWeight: 700, color: badge.color, background: badge.bg, padding: '2px 7px', borderRadius: 999, whiteSpace: 'nowrap', flexShrink: 0 }}>
-            {badge.label}
-          </span>
+  return (
+    <div className="w-full h-24 rounded-lg bg-gray-900 border border-gray-700 overflow-hidden mb-0">
+      <svg viewBox="0 0 100 100" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+        <rect width="100" height="100" fill="#111827" />
+        {nodes.map((n, i) => (
+          <rect
+            key={i}
+            x={n.x}
+            y={n.y}
+            width={Math.max(n.w, 8)}
+            height={Math.max(n.h, 5)}
+            rx="2"
+            fill={n.c}
+            opacity="0.8"
+          />
+        ))}
+      </svg>
+    </div>
+  )
+}
+
+function CanvasCard({
+  canvas,
+  showOwner,
+  confirming,
+  onOpen,
+  onDeleteRequest,
+  onDeleteConfirm,
+  onDeleteCancel,
+}: {
+  canvas: Canvas
+  showOwner?: boolean
+  confirming: boolean
+  onOpen: () => void
+  onDeleteRequest: () => void
+  onDeleteConfirm: () => void
+  onDeleteCancel: () => void
+}) {
+  const badge = canvas.role !== 'owner' ? ROLE_BADGE[canvas.role] : null
+  const tags = extractTags(canvas.name)
+  const displayName = canvas.name.replace(/#[\w가-힣]+/g, '').trim() || canvas.name
+
+  if (confirming) {
+    return (
+      <div className="bg-gray-900 border border-red-900 rounded-xl p-5 flex flex-col justify-between min-h-[180px]">
+        <div>
+          <p className="font-semibold text-gray-100 mb-1 truncate">{displayName}</p>
+          <p className="text-sm text-red-400 mt-2">Delete this canvas? This cannot be undone.</p>
+        </div>
+        <div className="flex gap-2 mt-4">
+          <button
+            onClick={onDeleteCancel}
+            className="flex-1 px-3 py-2 rounded-lg bg-gray-800 text-gray-300 text-sm font-medium hover:bg-gray-700 transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onDeleteConfirm}
+            className="flex-1 px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-500 transition-colors cursor-pointer"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="group bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl overflow-hidden transition-colors">
+      {/* Thumbnail — clicking navigates */}
+      <button onClick={onOpen} className="block w-full p-3 pb-0 cursor-pointer">
+        <CanvasThumbnail data={canvas.thumbnail_data} />
+      </button>
+
+      {/* Info */}
+      <div className="p-4 pt-3">
+        <div className="flex items-start justify-between gap-2 mb-1">
+          {/* Canvas name — clicking navigates */}
+          <button
+            onClick={onOpen}
+            className="font-semibold text-gray-100 hover:text-indigo-400 transition-colors text-left truncate cursor-pointer text-sm leading-snug"
+          >
+            {displayName}
+          </button>
+
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {badge && (
+              <span style={{ fontSize: 10, fontWeight: 700, color: badge.color, background: badge.bg, padding: '2px 6px', borderRadius: 999 }}>
+                {badge.label}
+              </span>
+            )}
+            {/* Delete button — owner only */}
+            {canvas.role === 'owner' && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onDeleteRequest() }}
+                title="Delete canvas"
+                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded text-gray-600 hover:text-red-400 cursor-pointer"
+              >
+                <TrashIcon size={13} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {showOwner && (
+          <p className="text-xs text-gray-600 truncate mb-0.5">{canvas.owner_email}</p>
+        )}
+
+        <p className="text-xs text-gray-600">
+          {formatDateTime(canvas.updated_at)}
+        </p>
+
+        {/* Hashtag pills */}
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {tags.map((tag) => (
+              <span key={tag} className="text-xs text-indigo-400 bg-indigo-950 px-2 py-0.5 rounded-full">
+                {tag}
+              </span>
+            ))}
+          </div>
         )}
       </div>
-
-      {showOwner && (
-        <p className="text-xs text-gray-600 mb-0.5 truncate">{canvas.owner_email}</p>
-      )}
-      <p className="text-xs text-gray-500">Updated {formatDate(canvas.updated_at)}</p>
-    </button>
+    </div>
   )
 }
 

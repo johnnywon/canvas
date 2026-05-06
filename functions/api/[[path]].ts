@@ -94,7 +94,7 @@ app.get('/api/canvases', async (c) => {
   const email = getEmail(c.req.raw)
   const { results } = await c.env.DB.prepare(`
     SELECT
-      c.id, c.name, c.owner_email, c.created_at, c.updated_at,
+      c.id, c.name, c.owner_email, c.created_at, c.updated_at, c.thumbnail_data,
       CASE WHEN c.owner_email = ? THEN 'owner' ELSE cm.role END AS role
     FROM canvases c
     LEFT JOIN canvas_members cm ON c.id = cm.canvas_id AND cm.user_email = ?
@@ -147,6 +147,58 @@ app.get('/api/canvases/:id', async (c) => {
   })
 })
 
+app.patch('/api/canvases/:id', async (c) => {
+  const email = getEmail(c.req.raw)
+  const canvasId = c.req.param('id')
+
+  const role = await getUserRole(c.env.DB, canvasId, email)
+  if (!role) return c.json({ error: 'Not found' }, 404)
+  if (role === 'viewer') return c.json({ error: 'Forbidden' }, 403)
+
+  const { name } = await c.req.json<{ name: string }>()
+  if (!name?.trim()) return c.json({ error: 'name required' }, 400)
+
+  await c.env.DB.prepare(
+    "UPDATE canvases SET name = ?, updated_at = datetime('now') WHERE id = ?"
+  ).bind(name.trim(), canvasId).run()
+
+  return c.json({ ok: true })
+})
+
+app.delete('/api/canvases/:id', async (c) => {
+  const email = getEmail(c.req.raw)
+  const canvasId = c.req.param('id')
+
+  const role = await getUserRole(c.env.DB, canvasId, email)
+  if (!role) return c.json({ error: 'Not found' }, 404)
+  if (role !== 'owner') return c.json({ error: 'Forbidden' }, 403)
+
+  await c.env.DB.prepare('DELETE FROM canvases WHERE id = ?').bind(canvasId).run()
+  return c.json({ ok: true })
+})
+
+function computeThumbnail(nodes: SaveNode[]): string {
+  if (!nodes.length) return '[]'
+  const xs = nodes.map((n) => n.x)
+  const ys = nodes.map((n) => n.y)
+  const minX = Math.min(...xs), maxX = Math.max(...xs) + 240
+  const minY = Math.min(...ys), maxY = Math.max(...ys) + 160
+  const rX = maxX - minX || 1, rY = maxY - minY || 1
+  const COLORS: Record<string, string> = {
+    vector: '#6366f1', image: '#0ea5e9', website: '#10b981', sticky_comment: '#fbbf24',
+  }
+  return JSON.stringify(
+    nodes.slice(0, 30).map((n) => ({
+      t: n.type,
+      x: Math.round(((n.x - minX) / rX) * 84) + 8,
+      y: Math.round(((n.y - minY) / rY) * 84) + 8,
+      c: COLORS[n.type] ?? '#6366f1',
+      w: n.width ? Math.min(Math.round((n.width / rX) * 84), 28) : 14,
+      h: n.height ? Math.min(Math.round((n.height / rY) * 84), 18) : 9,
+    }))
+  )
+}
+
 app.patch('/api/canvases/:id/state', async (c) => {
   const email = getEmail(c.req.raw)
   const canvasId = c.req.param('id')
@@ -170,7 +222,7 @@ app.patch('/api/canvases/:id/state', async (c) => {
         'INSERT INTO edges (id, canvas_id, source_node_id, target_node_id, label) VALUES (?, ?, ?, ?, ?)'
       ).bind(e.id, canvasId, e.source, e.target, e.label ?? null)
     ),
-    c.env.DB.prepare("UPDATE canvases SET updated_at = datetime('now') WHERE id = ?").bind(canvasId),
+    c.env.DB.prepare("UPDATE canvases SET updated_at = datetime('now'), thumbnail_data = ? WHERE id = ?").bind(computeThumbnail(nodes), canvasId),
   ])
 
   return c.json({ ok: true })

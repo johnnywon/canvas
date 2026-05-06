@@ -7,6 +7,7 @@ import {
   Background,
   BackgroundVariant,
   Controls,
+  ControlButton,
   MiniMap,
   useNodesState,
   useEdgesState,
@@ -26,6 +27,7 @@ import { StickyCommentNode } from '../nodes/StickyCommentNode'
 import { LabeledEdge } from '../edges/LabeledEdge'
 import { CommentPanel } from '../components/CommentPanel'
 import { ShareModal } from '../components/ShareModal'
+import { SortGridIcon, LockIcon, UnlockIcon } from '../components/icons'
 
 const nodeTypes = {
   vector: VectorNode,
@@ -116,6 +118,9 @@ function CanvasEditorInner() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [activeThread, setActiveThread] = useState<ActiveThread>(null)
   const [shareOpen, setShareOpen] = useState(false)
+  const [editingName, setEditingName] = useState(false)
+  const [nameDraft, setNameDraft] = useState('')
+  const [isInteractive, setIsInteractive] = useState(true)
   const [preferredLang, setPreferredLangState] = useState<'en' | 'ko'>(
     () => (localStorage.getItem('preferredLang') as 'en' | 'ko') ?? 'en'
   )
@@ -244,6 +249,32 @@ function CanvasEditorInner() {
     [screenToFlowPosition, setNodes, openThread, isViewer],
   )
 
+  const commitRename = useCallback(async () => {
+    if (!nameDraft.trim() || !canvasId) { setEditingName(false); return }
+    const newName = nameDraft.trim()
+    setEditingName(false)
+    setCanvas((c) => (c ? { ...c, name: newName } : c))
+    await fetch(`/api/canvases/${canvasId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName }),
+    })
+  }, [nameDraft, canvasId])
+
+  const sortNodes = useCallback(() => {
+    const CELL_W = 260, CELL_H = 180, GAP_X = 48, GAP_Y = 48, PAD = 60
+    setNodes((nds) => {
+      const cols = Math.max(1, Math.round(Math.sqrt(nds.length * 1.2)))
+      return nds.map((node, i) => ({
+        ...node,
+        position: {
+          x: PAD + (i % cols) * (CELL_W + GAP_X),
+          y: PAD + Math.floor(i / cols) * (CELL_H + GAP_Y),
+        },
+      }))
+    })
+  }, [setNodes])
+
   const onNodeClick = useCallback(
     (_e: React.MouseEvent, node: Node) => {
       if (node.type === 'sticky_comment') openThread('node', node.id)
@@ -278,9 +309,33 @@ function CanvasEditorInner() {
 
           <div style={{ width: 1, height: 20, background: '#1f2937' }} />
 
-          <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: '#f9fafb', fontFamily: 'system-ui, sans-serif' }}>
-            {canvas?.name ?? '…'}
-          </span>
+          {editingName ? (
+            <input
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={(e) => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setEditingName(false) }}
+              autoFocus
+              style={{
+                flex: 1, background: 'transparent', border: 'none',
+                borderBottom: '1px solid #6366f1', outline: 'none',
+                color: '#f9fafb', fontSize: 14, fontWeight: 600,
+                fontFamily: 'system-ui, sans-serif', padding: '0 2px',
+              }}
+            />
+          ) : (
+            <span
+              onClick={() => { if (!isViewer) { setNameDraft(canvas?.name ?? ''); setEditingName(true) } }}
+              title={isViewer ? canvas?.name : 'Click to rename'}
+              style={{
+                flex: 1, fontSize: 14, fontWeight: 600, color: '#f9fafb',
+                fontFamily: 'system-ui, sans-serif',
+                cursor: isViewer ? 'default' : 'text',
+              }}
+            >
+              {canvas?.name ?? '…'}
+            </span>
+          )}
 
           {/* Viewer badge */}
           {isViewer && (
@@ -369,15 +424,31 @@ function CanvasEditorInner() {
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             defaultEdgeOptions={defaultEdgeOptions}
-            nodesDraggable={!isViewer}
-            nodesConnectable={!isViewer}
-            deleteKeyCode={isViewer ? null : 'Backspace'}
+            nodesDraggable={!isViewer && isInteractive}
+            nodesConnectable={!isViewer && isInteractive}
+            deleteKeyCode={isViewer || !isInteractive ? null : 'Backspace'}
+            elementsSelectable={true}
             fitView
             fitViewOptions={{ padding: 0.2, minZoom: 0.3 }}
             style={{ background: '#030712' }}
           >
             <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#1f2937" />
-            <Controls style={{ background: '#111827', border: '1px solid #1f2937', borderRadius: 10 }} />
+            <Controls
+              showInteractive={false}
+              style={{ background: '#111827', border: '1px solid #1f2937', borderRadius: 10 }}
+            >
+              {!isViewer && (
+                <ControlButton onClick={sortNodes} title="Sort nodes into a grid">
+                  <SortGridIcon size={12} />
+                </ControlButton>
+              )}
+              <ControlButton
+                onClick={() => setIsInteractive((v) => !v)}
+                title={isInteractive ? 'Lock canvas' : 'Unlock canvas'}
+              >
+                {isInteractive ? <UnlockIcon size={11} /> : <LockIcon size={11} />}
+              </ControlButton>
+            </Controls>
             <MiniMap
               style={{ background: '#111827', border: '1px solid #1f2937', borderRadius: 10 }}
               nodeColor={(n) => {
