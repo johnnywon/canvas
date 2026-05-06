@@ -1,0 +1,13 @@
+name = "pulson-canvas"
+pages_build_output_dir = "./dist"
+compatibility_date = "2024-11-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pulson-canvas-db"
+database_id = "placeholder-replace-after-wrangler-d1-create"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "pulson-canvas-images"
