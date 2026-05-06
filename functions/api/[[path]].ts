@@ -8,6 +8,8 @@ type Bindings = {
   CF_API_TOKEN: string
 }
 
+type UserRole = 'owner' | 'editor' | 'viewer'
+
 type NodeRow = {
   id: string
   canvas_id: string
@@ -42,6 +44,11 @@ type CommentRow = {
   created_at: string
 }
 
+type MemberRow = {
+  user_email: string
+  role: 'editor' | 'viewer'
+}
+
 type SaveNode = {
   id: string
   type: string
@@ -65,14 +72,16 @@ function getEmail(req: Request): string {
   return req.headers.get('Cf-Access-Authenticated-User-Email') ?? 'test@pulsead.io'
 }
 
-async function verifyAccess(db: D1Database, canvasId: string, email: string): Promise<boolean> {
+// Returns the requesting user's role on a canvas, or null if no access at all.
+async function getUserRole(db: D1Database, canvasId: string, email: string): Promise<UserRole | null> {
   const row = await db.prepare(`
-    SELECT 1 FROM canvases c
-    LEFT JOIN canvas_members cm ON c.id = cm.canvas_id
+    SELECT CASE WHEN c.owner_email = ? THEN 'owner' ELSE cm.role END AS role
+    FROM canvases c
+    LEFT JOIN canvas_members cm ON c.id = cm.canvas_id AND cm.user_email = ?
     WHERE c.id = ? AND (c.owner_email = ? OR cm.user_email = ?)
-    LIMIT 1
-  `).bind(canvasId, email, email).first()
-  return row !== null
+  `).bind(email, email, canvasId, email, email).first<{ role: string }>()
+  if (!row) return null
+  return row.role as UserRole
 }
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
@@ -84,12 +93,14 @@ app.get('/api/me', (c) => c.json({ email: getEmail(c.req.raw) }))
 app.get('/api/canvases', async (c) => {
   const email = getEmail(c.req.raw)
   const { results } = await c.env.DB.prepare(`
-    SELECT DISTINCT c.id, c.name, c.owner_email, c.created_at, c.updated_at
+    SELECT
+      c.id, c.name, c.owner_email, c.created_at, c.updated_at,
+      CASE WHEN c.owner_email = ? THEN 'owner' ELSE cm.role END AS role
     FROM canvases c
-    LEFT JOIN canvas_members cm ON c.id = cm.canvas_id
+    LEFT JOIN canvas_members cm ON c.id = cm.canvas_id AND cm.user_email = ?
     WHERE c.owner_email = ? OR cm.user_email = ?
     ORDER BY c.updated_at DESC
-  `).bind(email, email).all()
+  `).bind(email, email, email, email).all()
   return c.json(results)
 })
 
@@ -101,7 +112,7 @@ app.post('/api/canvases', async (c) => {
   await c.env.DB.prepare(
     'INSERT INTO canvases (id, name, owner_email) VALUES (?, ?, ?)'
   ).bind(id, name, email).run()
-  return c.json({ id, name, owner_email: email, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, 201)
+  return c.json({ id, name, owner_email: email, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), role: 'owner' }, 201)
 })
 
 app.get('/api/canvases/:id', async (c) => {
@@ -109,11 +120,13 @@ app.get('/api/canvases/:id', async (c) => {
   const canvasId = c.req.param('id')
 
   const canvas = await c.env.DB.prepare(`
-    SELECT DISTINCT c.id, c.name, c.owner_email, c.created_at, c.updated_at
+    SELECT
+      c.id, c.name, c.owner_email, c.created_at, c.updated_at,
+      CASE WHEN c.owner_email = ? THEN 'owner' ELSE cm.role END AS userRole
     FROM canvases c
-    LEFT JOIN canvas_members cm ON c.id = cm.canvas_id
+    LEFT JOIN canvas_members cm ON c.id = cm.canvas_id AND cm.user_email = ?
     WHERE c.id = ? AND (c.owner_email = ? OR cm.user_email = ?)
-  `).bind(canvasId, email, email).first()
+  `).bind(email, email, canvasId, email, email).first()
 
   if (!canvas) return c.json({ error: 'Not found' }, 404)
 
@@ -138,14 +151,9 @@ app.patch('/api/canvases/:id/state', async (c) => {
   const email = getEmail(c.req.raw)
   const canvasId = c.req.param('id')
 
-  const access = await c.env.DB.prepare(`
-    SELECT 1 FROM canvases c
-    LEFT JOIN canvas_members cm ON c.id = cm.canvas_id AND cm.user_email = ? AND cm.role = 'editor'
-    WHERE c.id = ? AND (c.owner_email = ? OR cm.user_email IS NOT NULL)
-    LIMIT 1
-  `).bind(email, canvasId, email).first()
-
-  if (!access) return c.json({ error: 'Not found' }, 404)
+  const role = await getUserRole(c.env.DB, canvasId, email)
+  if (!role) return c.json({ error: 'Not found' }, 404)
+  if (role === 'viewer') return c.json({ error: 'Forbidden' }, 403)
 
   const { nodes, edges } = await c.req.json<{ nodes: SaveNode[]; edges: SaveEdge[] }>()
 
@@ -164,6 +172,78 @@ app.patch('/api/canvases/:id/state', async (c) => {
     ),
     c.env.DB.prepare("UPDATE canvases SET updated_at = datetime('now') WHERE id = ?").bind(canvasId),
   ])
+
+  return c.json({ ok: true })
+})
+
+// ── Members ───────────────────────────────────────────────────────────────────
+
+app.get('/api/canvases/:id/members', async (c) => {
+  const email = getEmail(c.req.raw)
+  const canvasId = c.req.param('id')
+
+  const role = await getUserRole(c.env.DB, canvasId, email)
+  if (!role) return c.json({ error: 'Not found' }, 404)
+  if (role !== 'owner') return c.json({ error: 'Forbidden' }, 403)
+
+  const { results } = await c.env.DB.prepare(
+    'SELECT user_email, role FROM canvas_members WHERE canvas_id = ? ORDER BY user_email ASC'
+  ).bind(canvasId).all<MemberRow>()
+
+  return c.json(results)
+})
+
+app.post('/api/canvases/:id/members', async (c) => {
+  const email = getEmail(c.req.raw)
+  const canvasId = c.req.param('id')
+
+  const role = await getUserRole(c.env.DB, canvasId, email)
+  if (!role) return c.json({ error: 'Not found' }, 404)
+  if (role !== 'owner') return c.json({ error: 'Forbidden' }, 403)
+
+  const { email: memberEmail, role: memberRole } = await c.req.json<{ email: string; role: 'editor' | 'viewer' }>()
+  if (!memberEmail?.trim()) return c.json({ error: 'email required' }, 400)
+
+  // Prevent adding the owner as a member
+  const canvas = await c.env.DB.prepare('SELECT owner_email FROM canvases WHERE id = ?').bind(canvasId).first<{ owner_email: string }>()
+  if (canvas?.owner_email === memberEmail.trim()) return c.json({ error: 'Cannot add owner as member' }, 400)
+
+  await c.env.DB.prepare(
+    'INSERT INTO canvas_members (canvas_id, user_email, role) VALUES (?, ?, ?) ON CONFLICT (canvas_id, user_email) DO UPDATE SET role = excluded.role'
+  ).bind(canvasId, memberEmail.trim(), memberRole ?? 'viewer').run()
+
+  return c.json({ ok: true }, 201)
+})
+
+app.patch('/api/canvases/:id/members/:email', async (c) => {
+  const email = getEmail(c.req.raw)
+  const canvasId = c.req.param('id')
+  const memberEmail = decodeURIComponent(c.req.param('email'))
+
+  const role = await getUserRole(c.env.DB, canvasId, email)
+  if (!role) return c.json({ error: 'Not found' }, 404)
+  if (role !== 'owner') return c.json({ error: 'Forbidden' }, 403)
+
+  const { role: newRole } = await c.req.json<{ role: 'editor' | 'viewer' }>()
+  await c.env.DB.prepare(
+    'UPDATE canvas_members SET role = ? WHERE canvas_id = ? AND user_email = ?'
+  ).bind(newRole, canvasId, memberEmail).run()
+
+  return c.json({ ok: true })
+})
+
+app.delete('/api/canvases/:id/members/:email', async (c) => {
+  const email = getEmail(c.req.raw)
+  const canvasId = c.req.param('id')
+  const memberEmail = decodeURIComponent(c.req.param('email'))
+
+  const role = await getUserRole(c.env.DB, canvasId, email)
+  if (!role) return c.json({ error: 'Not found' }, 404)
+  if (role !== 'owner') return c.json({ error: 'Forbidden' }, 403)
+
+  await c.env.DB.prepare(
+    'DELETE FROM canvas_members WHERE canvas_id = ? AND user_email = ?'
+  ).bind(canvasId, memberEmail).run()
 
   return c.json({ ok: true })
 })
@@ -231,9 +311,8 @@ app.get('/api/canvases/:id/comments', async (c) => {
   const email = getEmail(c.req.raw)
   const canvasId = c.req.param('id')
 
-  if (!(await verifyAccess(c.env.DB, canvasId, email))) {
-    return c.json({ error: 'Not found' }, 404)
-  }
+  const role = await getUserRole(c.env.DB, canvasId, email)
+  if (!role) return c.json({ error: 'Not found' }, 404)
 
   const parentType = c.req.query('parent_type') ?? 'node'
   const parentId = c.req.query('parent_id') ?? ''
@@ -254,11 +333,10 @@ app.post('/api/comments', async (c) => {
     text: string
   }>()
 
-  if (!(await verifyAccess(c.env.DB, canvas_id, email))) {
-    return c.json({ error: 'Not found' }, 404)
-  }
+  const role = await getUserRole(c.env.DB, canvas_id, email)
+  if (!role) return c.json({ error: 'Not found' }, 404)
+  // All roles (owner, editor, viewer) may comment
 
-  // Detect language by Hangul presence (U+AC00–U+D7A3)
   const hasHangul = /[가-힣]/.test(text)
   const original_lang = hasHangul ? 'ko' : 'en'
   const targetLangLabel = hasHangul ? 'English' : 'Korean'

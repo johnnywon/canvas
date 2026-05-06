@@ -20,7 +20,13 @@
       "Bash(pkill -f \"wrangler\")",
       "Bash(curl *)",
       "Bash(git rm *)",
-      "Bash(git commit -m 'chore: gitignore .wrangler/ local state *)"
+      "Bash(git commit -m 'chore: gitignore .wrangler/ local state *)",
+      "Bash(pkill -f \"vite\\\\|wrangler\")",
+      "Bash(npm --prefix ~/Developer/pulson-canvas run migrations:local)",
+      "Bash(npm *)",
+      "Bash(xargs kill -9)",
+      "Bash(rm .dev.vars)",
+      "Bash(nano .dev.vars)"
     ]
   }
 }

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:worker": "wrangler pages dev --proxy 5173 --port 8788",
+    "dev:worker": "wrangler pages dev --port 8787",
     "dev:all": "concurrently -k -n vite,worker -c cyan,yellow \"npm run dev\" \"npm run dev:worker\"",
     "build": "tsc -b && vite build",
     "preview": "wrangler pages dev ./dist",

@@ -18,13 +18,14 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 
-import { CanvasContext, type ActiveThread } from '../contexts/CanvasContext'
+import { CanvasContext, type ActiveThread, type UserRole } from '../contexts/CanvasContext'
 import { VectorNode } from '../nodes/VectorNode'
 import { ImageNode } from '../nodes/ImageNode'
 import { WebsiteNode } from '../nodes/WebsiteNode'
 import { StickyCommentNode } from '../nodes/StickyCommentNode'
 import { LabeledEdge } from '../edges/LabeledEdge'
 import { CommentPanel } from '../components/CommentPanel'
+import { ShareModal } from '../components/ShareModal'
 
 const nodeTypes = {
   vector: VectorNode,
@@ -48,6 +49,7 @@ type CanvasData = {
   owner_email: string
   created_at: string
   updated_at: string
+  userRole: UserRole
 }
 
 type DBNode = {
@@ -67,7 +69,7 @@ type DBEdge = {
   label: string | null
 }
 
-type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error'
+type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error' | 'readonly'
 
 function toFlowNode(n: DBNode): Node {
   return {
@@ -107,10 +109,13 @@ function CanvasEditorInner() {
   const { screenToFlowPosition } = useReactFlow()
 
   const [canvas, setCanvas] = useState<CanvasData | null>(null)
+  const [userRole, setUserRole] = useState<UserRole>('owner')
+  const [currentUserEmail, setCurrentUserEmail] = useState('')
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [activeThread, setActiveThread] = useState<ActiveThread>(null)
+  const [shareOpen, setShareOpen] = useState(false)
   const [preferredLang, setPreferredLangState] = useState<'en' | 'ko'>(
     () => (localStorage.getItem('preferredLang') as 'en' | 'ko') ?? 'en'
   )
@@ -118,7 +123,9 @@ function CanvasEditorInner() {
   const isLoadedRef = useRef(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
-  // ── Context value ──────────────────────────────────────────────────────────
+  const isViewer = userRole === 'viewer'
+
+  // ── Context ────────────────────────────────────────────────────────────────
   const openThread = useCallback((parentType: 'node' | 'edge', parentId: string) => {
     setActiveThread({ parentType, parentId })
   }, [])
@@ -130,38 +137,48 @@ function CanvasEditorInner() {
     localStorage.setItem('preferredLang', lang)
   }, [])
 
-  const ctxValue = useMemo(
-    () => ({ canvasId: canvasId ?? '', preferredLang, setPreferredLang, openThread, closeThread, activeThread }),
-    [canvasId, preferredLang, setPreferredLang, openThread, closeThread, activeThread],
-  )
+  const ctxValue = useMemo(() => ({
+    canvasId: canvasId ?? '',
+    userRole,
+    currentUserEmail,
+    preferredLang,
+    setPreferredLang,
+    openThread,
+    closeThread,
+    activeThread,
+  }), [canvasId, userRole, currentUserEmail, preferredLang, setPreferredLang, openThread, closeThread, activeThread])
 
   // ── Load canvas ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!canvasId) return
     isLoadedRef.current = false
-    fetch(`/api/canvases/${canvasId}`)
-      .then((r) => {
+    Promise.all([
+      fetch('/api/me').then((r) => r.json() as Promise<{ email: string }>),
+      fetch(`/api/canvases/${canvasId}`).then((r) => {
         if (!r.ok) throw new Error('Not found')
         return r.json() as Promise<{ canvas: CanvasData; nodes: DBNode[]; edges: DBEdge[] }>
-      })
-      .then(({ canvas: c, nodes: dbNodes, edges: dbEdges }) => {
-        setCanvas(c)
-        setNodes(dbNodes.map(toFlowNode))
-        setEdges(dbEdges.map(toFlowEdge))
+      }),
+    ])
+      .then(([me, data]) => {
+        setCurrentUserEmail(me.email)
+        setCanvas(data.canvas)
+        setUserRole((data.canvas.userRole as UserRole) ?? 'viewer')
+        setNodes(data.nodes.map(toFlowNode))
+        setEdges(data.edges.map(toFlowEdge))
         requestAnimationFrame(() => { isLoadedRef.current = true })
       })
       .catch(() => navigate('/canvases'))
   }, [canvasId, navigate, setNodes, setEdges])
 
-  // ── Auto-save ──────────────────────────────────────────────────────────────
+  // ── Auto-save (skipped for viewers) ───────────────────────────────────────
   useEffect(() => {
-    if (!isLoadedRef.current || !canvasId) return
+    if (!isLoadedRef.current || !canvasId || isViewer) return
     setSaveStatus('pending')
     clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(async () => {
       setSaveStatus('saving')
       try {
-        await fetch(`/api/canvases/${canvasId}/state`, {
+        const res = await fetch(`/api/canvases/${canvasId}/state`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -182,21 +199,19 @@ function CanvasEditorInner() {
             })),
           }),
         })
+        if (res.status === 403) { setSaveStatus('readonly'); return }
         setSaveStatus('saved')
       } catch {
         setSaveStatus('error')
       }
     }, 1000)
-  }, [nodes, edges, canvasId])
+  }, [nodes, edges, canvasId, isViewer])
 
   // ── Edge connect ───────────────────────────────────────────────────────────
   const onConnect: OnConnect = useCallback(
     (connection) =>
       setEdges((eds) =>
-        addEdge(
-          { ...connection, type: 'labeled', markerEnd: { type: MarkerType.ArrowClosed, color: '#374151' } },
-          eds,
-        )
+        addEdge({ ...connection, type: 'labeled', markerEnd: { type: MarkerType.ArrowClosed, color: '#374151' } }, eds)
       ),
     [setEdges],
   )
@@ -211,12 +226,7 @@ function CanvasEditorInner() {
       }
       setNodes((nds) => [
         ...nds,
-        {
-          id: crypto.randomUUID(),
-          type,
-          position: { x: 120 + Math.random() * 300, y: 100 + Math.random() * 200 },
-          data: defaults[type],
-        },
+        { id: crypto.randomUUID(), type, position: { x: 120 + Math.random() * 300, y: 100 + Math.random() * 200 }, data: defaults[type] },
       ])
     },
     [setNodes],
@@ -225,18 +235,15 @@ function CanvasEditorInner() {
   // ── Double-click canvas → drop sticky comment ──────────────────────────────
   const onPaneDoubleClick = useCallback(
     (e: React.MouseEvent) => {
+      if (isViewer) return
       const pos = screenToFlowPosition({ x: e.clientX, y: e.clientY })
       const nodeId = crypto.randomUUID()
-      setNodes((nds) => [
-        ...nds,
-        { id: nodeId, type: 'sticky_comment', position: pos, data: {} },
-      ])
+      setNodes((nds) => [...nds, { id: nodeId, type: 'sticky_comment', position: pos, data: {} }])
       openThread('node', nodeId)
     },
-    [screenToFlowPosition, setNodes, openThread],
+    [screenToFlowPosition, setNodes, openThread, isViewer],
   )
 
-  // ── Node click → open sticky comment panel ─────────────────────────────────
   const onNodeClick = useCallback(
     (_e: React.MouseEvent, node: Node) => {
       if (node.type === 'sticky_comment') openThread('node', node.id)
@@ -246,10 +253,12 @@ function CanvasEditorInner() {
 
   // ── Status display ─────────────────────────────────────────────────────────
   const statusLabel: Record<SaveStatus, string> = {
-    idle: '', pending: 'Unsaved changes', saving: 'Saving…', saved: 'Saved', error: 'Save failed',
+    idle: '', pending: 'Unsaved changes', saving: 'Saving…',
+    saved: 'Saved', error: 'Save failed', readonly: 'View only',
   }
   const statusColor: Record<SaveStatus, string> = {
-    idle: '#6b7280', pending: '#f59e0b', saving: '#6b7280', saved: '#10b981', error: '#ef4444',
+    idle: '#6b7280', pending: '#f59e0b', saving: '#6b7280',
+    saved: '#10b981', error: '#ef4444', readonly: '#f59e0b',
   }
 
   return (
@@ -273,7 +282,15 @@ function CanvasEditorInner() {
             {canvas?.name ?? '…'}
           </span>
 
-          {saveStatus !== 'idle' && (
+          {/* Viewer badge */}
+          {isViewer && (
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '3px 10px', borderRadius: 6, letterSpacing: 0.3 }}>
+              Viewer
+            </span>
+          )}
+
+          {/* Save status */}
+          {!isViewer && saveStatus !== 'idle' && (
             <span style={{ fontSize: 11, color: statusColor[saveStatus], fontFamily: 'system-ui, sans-serif' }}>
               {statusLabel[saveStatus]}
             </span>
@@ -287,14 +304,9 @@ function CanvasEditorInner() {
                 onClick={() => setPreferredLang(lang)}
                 style={{
                   background: preferredLang === lang ? '#6366f1' : 'transparent',
-                  border: 'none',
-                  color: preferredLang === lang ? 'white' : '#6b7280',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: '4px 10px',
-                  cursor: 'pointer',
-                  letterSpacing: 0.5,
-                  transition: 'background 0.15s, color 0.15s',
+                  border: 'none', color: preferredLang === lang ? 'white' : '#6b7280',
+                  fontSize: 11, fontWeight: 700, padding: '4px 10px', cursor: 'pointer',
+                  letterSpacing: 0.5, transition: 'background 0.15s, color 0.15s',
                 }}
               >
                 {lang.toUpperCase()}
@@ -302,20 +314,39 @@ function CanvasEditorInner() {
             ))}
           </div>
 
-          <div style={{ display: 'flex', gap: 6 }}>
-            <ToolbarButton onClick={() => addNode('vector')} label="+ Vector" color="#6366f1" />
-            <ToolbarButton onClick={() => addNode('image')} label="+ Image" color="#0ea5e9" />
-            <ToolbarButton onClick={() => addNode('website')} label="+ Website" color="#10b981" />
-            <ToolbarButton
-              onClick={() => {
-                const nodeId = crypto.randomUUID()
-                setNodes((nds) => [...nds, { id: nodeId, type: 'sticky_comment', position: { x: 200 + Math.random() * 300, y: 150 + Math.random() * 200 }, data: {} }])
-                openThread('node', nodeId)
+          {/* Share button — owner only */}
+          {userRole === 'owner' && (
+            <button
+              onClick={() => setShareOpen(true)}
+              style={{
+                background: '#111827', border: '1.5px solid #374151', borderRadius: 8,
+                color: '#e5e7eb', fontSize: 12, fontWeight: 600, padding: '4px 14px',
+                cursor: 'pointer', transition: 'border-color 0.12s, color 0.12s',
               }}
-              label="+ Sticky"
-              color="#fbbf24"
-            />
-          </div>
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#6366f1'; (e.currentTarget as HTMLButtonElement).style.color = '#a5b4fc' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#374151'; (e.currentTarget as HTMLButtonElement).style.color = '#e5e7eb' }}
+            >
+              Share
+            </button>
+          )}
+
+          {/* Add node toolbar — hidden for viewers */}
+          {!isViewer && (
+            <div style={{ display: 'flex', gap: 6 }}>
+              <ToolbarButton onClick={() => addNode('vector')} label="+ Vector" color="#6366f1" />
+              <ToolbarButton onClick={() => addNode('image')} label="+ Image" color="#0ea5e9" />
+              <ToolbarButton onClick={() => addNode('website')} label="+ Website" color="#10b981" />
+              <ToolbarButton
+                onClick={() => {
+                  const nodeId = crypto.randomUUID()
+                  setNodes((nds) => [...nds, { id: nodeId, type: 'sticky_comment', position: { x: 200 + Math.random() * 300, y: 150 + Math.random() * 200 }, data: {} }])
+                  openThread('node', nodeId)
+                }}
+                label="+ Sticky"
+                color="#fbbf24"
+              />
+            </div>
+          )}
         </div>
 
         {/* Canvas + panel */}
@@ -332,16 +363,18 @@ function CanvasEditorInner() {
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
+            onConnect={isViewer ? undefined : onConnect}
             onPaneClick={() => setActiveThread(null)}
             onNodeClick={onNodeClick}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             defaultEdgeOptions={defaultEdgeOptions}
+            nodesDraggable={!isViewer}
+            nodesConnectable={!isViewer}
+            deleteKeyCode={isViewer ? null : 'Backspace'}
             fitView
             fitViewOptions={{ padding: 0.2, minZoom: 0.3 }}
             style={{ background: '#030712' }}
-            deleteKeyCode="Backspace"
           >
             <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#1f2937" />
             <Controls style={{ background: '#111827', border: '1px solid #1f2937', borderRadius: 10 }} />
@@ -359,6 +392,16 @@ function CanvasEditorInner() {
           <CommentPanel />
         </div>
       </div>
+
+      {/* Share modal */}
+      {shareOpen && canvas && (
+        <ShareModal
+          canvasId={canvasId!}
+          canvasName={canvas.name}
+          ownerEmail={canvas.owner_email}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
     </CanvasContext.Provider>
   )
 }
@@ -368,16 +411,9 @@ function ToolbarButton({ onClick, label, color }: { onClick: () => void; label: 
     <button
       onClick={onClick}
       style={{
-        background: 'transparent',
-        border: `1.5px solid ${color}`,
-        borderRadius: 8,
-        color,
-        fontSize: 12,
-        fontWeight: 600,
-        padding: '4px 12px',
-        cursor: 'pointer',
-        fontFamily: 'system-ui, sans-serif',
-        transition: 'background 0.12s ease',
+        background: 'transparent', border: `1.5px solid ${color}`, borderRadius: 8,
+        color, fontSize: 12, fontWeight: 600, padding: '4px 12px', cursor: 'pointer',
+        fontFamily: 'system-ui, sans-serif', transition: 'background 0.12s ease',
       }}
       onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = `${color}22`)}
       onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'transparent')}

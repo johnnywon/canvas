@@ -1,6 +1,7 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react'
 import { CanvasContext } from '../contexts/CanvasContext'
+// userRole read inside component
 
 export type VectorNodeData = {
   label?: string
@@ -25,12 +26,15 @@ export function VectorNode({ id, data, selected }: NodeProps) {
     }
   }, [editing])
 
+  const { userRole } = useContext(CanvasContext)
+
   const commit = useCallback(() => {
     setEditing(false)
     updateNodeData(id, { label: draft })
   }, [id, draft, updateNodeData])
 
   const handleDoubleClick = (e: React.MouseEvent) => {
+    if (userRole === 'viewer') return
     e.stopPropagation()
     setEditing(true)
   }

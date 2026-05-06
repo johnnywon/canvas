@@ -39,8 +39,11 @@ export function WebsiteNode({ id, data, selected }: NodeProps) {
     return () => clearTimeout(t)
   }, [d.embed_status, d.url, id, updateNodeData])
 
+  const { userRole } = useContext(CanvasContext)
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (userRole === 'viewer') return
     const raw = urlInput.trim()
     if (!raw) return
     const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`

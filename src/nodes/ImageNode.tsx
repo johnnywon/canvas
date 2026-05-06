@@ -14,9 +14,12 @@ export function ImageNode({ id, data, selected }: NodeProps) {
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const { userRole } = useContext(CanvasContext)
+
   const uploadFile = useCallback(
     async (file: File) => {
       if (!file.type.startsWith('image/')) return
+      if (userRole === 'viewer') return
       setUploading(true)
       try {
         const formData = new FormData()
