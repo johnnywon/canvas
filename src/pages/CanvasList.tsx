@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { TrashIcon } from '../components/icons'
 
@@ -23,6 +23,10 @@ function formatDateTime(iso: string) {
 
 function extractTags(name: string): string[] {
   return (name.match(/#[\w가-힣]+/g) ?? []).map((t) => t.toLowerCase())
+}
+
+function displayName(name: string) {
+  return name.replace(/#[\w가-힣]+/g, '').trim() || name
 }
 
 const ROLE_BADGE: Record<'editor' | 'viewer', { label: string; color: string; bg: string }> = {
@@ -71,17 +75,32 @@ export function CanvasList() {
     setConfirming(null)
   }, [])
 
+  const renameCanvas = useCallback((id: string, newName: string) => {
+    setCanvases((cs) => cs.map((c) => c.id === id ? { ...c, name: newName } : c))
+  }, [])
+
   const owned = canvases.filter((c) => c.role === 'owner')
   const shared = canvases.filter((c) => c.role !== 'owner')
 
-  const allTags = Array.from(new Set(canvases.flatMap((c) => extractTags(c.name)))).sort()
+  const allTags = useMemo(
+    () => Array.from(new Set(canvases.flatMap((c) => extractTags(c.name)))).sort(),
+    [canvases],
+  )
 
-  const filteredOwned = activeTag
-    ? owned.filter((c) => extractTags(c.name).includes(activeTag))
-    : owned
-  const filteredShared = activeTag
-    ? shared.filter((c) => extractTags(c.name).includes(activeTag))
-    : shared
+  // Groups of 2+ canvases sharing a hashtag
+  const tagGroups = useMemo(() => {
+    const groups: Record<string, Canvas[]> = {}
+    canvases.forEach((c) => {
+      extractTags(c.name).forEach((tag) => {
+        if (!groups[tag]) groups[tag] = []
+        groups[tag].push(c)
+      })
+    })
+    return Object.entries(groups).filter(([, cs]) => cs.length >= 2)
+  }, [canvases])
+
+  const filteredOwned = activeTag ? owned.filter((c) => extractTags(c.name).includes(activeTag)) : owned
+  const filteredShared = activeTag ? shared.filter((c) => extractTags(c.name).includes(activeTag)) : shared
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 font-sans">
@@ -140,7 +159,7 @@ export function CanvasList() {
             )}
 
             {filteredOwned.length > 0 && (
-              <Section title="My canvases">
+              <Section title="My Work">
                 {filteredOwned.map((canvas) => (
                   <CanvasCard
                     key={canvas.id}
@@ -150,6 +169,7 @@ export function CanvasList() {
                     onDeleteRequest={() => setConfirming(canvas.id)}
                     onDeleteConfirm={() => deleteCanvas(canvas.id)}
                     onDeleteCancel={() => setConfirming(null)}
+                    onRename={renameCanvas}
                   />
                 ))}
               </Section>
@@ -167,10 +187,30 @@ export function CanvasList() {
                     onDeleteRequest={() => {}}
                     onDeleteConfirm={() => {}}
                     onDeleteCancel={() => {}}
+                    onRename={renameCanvas}
                   />
                 ))}
               </Section>
             )}
+
+            {/* Hashtag group sections (2+ canvases per tag) */}
+            {!activeTag && tagGroups.map(([tag, tagCanvases]) => (
+              <Section key={tag} title={tag}>
+                {tagCanvases.map((canvas) => (
+                  <CanvasCard
+                    key={canvas.id}
+                    canvas={canvas}
+                    showOwner={canvas.role !== 'owner'}
+                    confirming={confirming === canvas.id}
+                    onOpen={() => navigate(`/canvases/${canvas.id}`)}
+                    onDeleteRequest={() => canvas.role === 'owner' ? setConfirming(canvas.id) : undefined}
+                    onDeleteConfirm={() => deleteCanvas(canvas.id)}
+                    onDeleteCancel={() => setConfirming(null)}
+                    onRename={renameCanvas}
+                  />
+                ))}
+              </Section>
+            ))}
 
             {activeTag && filteredOwned.length === 0 && filteredShared.length === 0 && (
               <p className="text-gray-500 text-sm">No canvases tagged {activeTag}.</p>
@@ -193,16 +233,13 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function CanvasThumbnail({ data }: { data: string | null }) {
   let nodes: ThumbnailNode[] = []
-  try {
-    if (data) nodes = JSON.parse(data) as ThumbnailNode[]
-  } catch { /* ignore */ }
+  try { if (data) nodes = JSON.parse(data) as ThumbnailNode[] } catch { /**/ }
 
   if (!nodes.length) {
     return (
       <div className="w-full h-24 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" className="text-gray-700">
-          <circle cx="9" cy="9" r="3" />
-          <circle cx="17" cy="15" r="3" />
+          <circle cx="9" cy="9" r="3" /><circle cx="17" cy="15" r="3" />
           <path d="M12 9h2M15 15H7" strokeLinecap="round" />
         </svg>
       </div>
@@ -210,20 +247,11 @@ function CanvasThumbnail({ data }: { data: string | null }) {
   }
 
   return (
-    <div className="w-full h-24 rounded-lg bg-gray-900 border border-gray-700 overflow-hidden mb-0">
+    <div className="w-full h-24 rounded-lg bg-gray-900 border border-gray-700 overflow-hidden">
       <svg viewBox="0 0 100 100" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
         <rect width="100" height="100" fill="#111827" />
         {nodes.map((n, i) => (
-          <rect
-            key={i}
-            x={n.x}
-            y={n.y}
-            width={Math.max(n.w, 8)}
-            height={Math.max(n.h, 5)}
-            rx="2"
-            fill={n.c}
-            opacity="0.8"
-          />
+          <rect key={i} x={n.x} y={n.y} width={Math.max(n.w, 8)} height={Math.max(n.h, 5)} rx="2" fill={n.c} opacity="0.8" />
         ))}
       </svg>
     </div>
@@ -231,54 +259,59 @@ function CanvasThumbnail({ data }: { data: string | null }) {
 }
 
 function CanvasCard({
-  canvas,
-  showOwner,
-  confirming,
-  onOpen,
-  onDeleteRequest,
-  onDeleteConfirm,
-  onDeleteCancel,
+  canvas, showOwner, confirming, onOpen, onDeleteRequest, onDeleteConfirm, onDeleteCancel, onRename,
 }: {
-  canvas: Canvas
-  showOwner?: boolean
-  confirming: boolean
-  onOpen: () => void
-  onDeleteRequest: () => void
-  onDeleteConfirm: () => void
-  onDeleteCancel: () => void
+  canvas: Canvas; showOwner?: boolean; confirming: boolean
+  onOpen: () => void; onDeleteRequest: () => void; onDeleteConfirm: () => void; onDeleteCancel: () => void
+  onRename: (id: string, newName: string) => void
 }) {
   const badge = canvas.role !== 'owner' ? ROLE_BADGE[canvas.role] : null
   const tags = extractTags(canvas.name)
-  const displayName = canvas.name.replace(/#[\w가-힣]+/g, '').trim() || canvas.name
+  const name = displayName(canvas.name)
+
+  const [hovered, setHovered] = useState(false)
+  const [tagInput, setTagInput] = useState('')
+  const [addingTag, setAddingTag] = useState(false)
+  const tagInputRef = useRef<HTMLInputElement>(null)
+
+  const handleAddTag = async (e: React.FormEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const raw = tagInput.trim().replace(/^#/, '')
+    if (!raw) { setAddingTag(false); return }
+    const newName = `${canvas.name} #${raw}`
+    setTagInput('')
+    setAddingTag(false)
+    onRename(canvas.id, newName)
+    await fetch(`/api/canvases/${canvas.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName }),
+    })
+  }
 
   if (confirming) {
     return (
-      <div className="bg-gray-900 border border-red-900 rounded-xl p-5 flex flex-col justify-between min-h-[180px]">
+      <div className="bg-gray-900 border border-red-900 rounded-xl p-5 flex flex-col justify-between min-h-[200px]">
         <div>
-          <p className="font-semibold text-gray-100 mb-1 truncate">{displayName}</p>
+          <p className="font-semibold text-gray-100 mb-1 truncate">{name}</p>
           <p className="text-sm text-red-400 mt-2">Delete this canvas? This cannot be undone.</p>
         </div>
         <div className="flex gap-2 mt-4">
-          <button
-            onClick={onDeleteCancel}
-            className="flex-1 px-3 py-2 rounded-lg bg-gray-800 text-gray-300 text-sm font-medium hover:bg-gray-700 transition-colors cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onDeleteConfirm}
-            className="flex-1 px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-500 transition-colors cursor-pointer"
-          >
-            Delete
-          </button>
+          <button onClick={onDeleteCancel} className="flex-1 px-3 py-2 rounded-lg bg-gray-800 text-gray-300 text-sm font-medium hover:bg-gray-700 transition-colors cursor-pointer">Cancel</button>
+          <button onClick={onDeleteConfirm} className="flex-1 px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-500 transition-colors cursor-pointer">Delete</button>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="group bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl overflow-hidden transition-colors">
-      {/* Thumbnail — clicking navigates */}
+    <div
+      className="group bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl overflow-hidden transition-colors"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); setAddingTag(false) }}
+    >
+      {/* Thumbnail */}
       <button onClick={onOpen} className="block w-full p-3 pb-0 cursor-pointer">
         <CanvasThumbnail data={canvas.thumbnail_data} />
       </button>
@@ -286,21 +319,15 @@ function CanvasCard({
       {/* Info */}
       <div className="p-4 pt-3">
         <div className="flex items-start justify-between gap-2 mb-1">
-          {/* Canvas name — clicking navigates */}
-          <button
-            onClick={onOpen}
-            className="font-semibold text-gray-100 hover:text-indigo-400 transition-colors text-left truncate cursor-pointer text-sm leading-snug"
-          >
-            {displayName}
+          <button onClick={onOpen} className="font-semibold text-gray-100 hover:text-indigo-400 transition-colors text-left truncate cursor-pointer text-sm leading-snug">
+            {name}
           </button>
-
           <div className="flex items-center gap-1 flex-shrink-0">
             {badge && (
               <span style={{ fontSize: 10, fontWeight: 700, color: badge.color, background: badge.bg, padding: '2px 6px', borderRadius: 999 }}>
                 {badge.label}
               </span>
             )}
-            {/* Delete button — owner only */}
             {canvas.role === 'owner' && (
               <button
                 onClick={(e) => { e.stopPropagation(); onDeleteRequest() }}
@@ -313,22 +340,43 @@ function CanvasCard({
           </div>
         </div>
 
-        {showOwner && (
-          <p className="text-xs text-gray-600 truncate mb-0.5">{canvas.owner_email}</p>
-        )}
+        {showOwner && <p className="text-xs text-gray-600 truncate mb-0.5">{canvas.owner_email}</p>}
+        <p className="text-xs text-gray-600">{formatDateTime(canvas.updated_at)}</p>
 
-        <p className="text-xs text-gray-600">
-          {formatDateTime(canvas.updated_at)}
-        </p>
-
-        {/* Hashtag pills */}
+        {/* Existing hashtag pills */}
         {tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
             {tags.map((tag) => (
-              <span key={tag} className="text-xs text-indigo-400 bg-indigo-950 px-2 py-0.5 rounded-full">
-                {tag}
-              </span>
+              <span key={tag} className="text-xs text-indigo-400 bg-indigo-950 px-2 py-0.5 rounded-full">{tag}</span>
             ))}
+          </div>
+        )}
+
+        {/* Hover: add hashtag input */}
+        {hovered && canvas.role === 'owner' && (
+          <div className="mt-2">
+            {!addingTag ? (
+              <button
+                onClick={(e) => { e.stopPropagation(); setAddingTag(true); setTimeout(() => tagInputRef.current?.focus(), 50) }}
+                className="text-xs text-gray-600 hover:text-indigo-400 transition-colors cursor-pointer"
+              >
+                + add hashtag
+              </button>
+            ) : (
+              <form onSubmit={handleAddTag} onClick={(e) => e.stopPropagation()} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <span className="text-xs text-indigo-400">#</span>
+                <input
+                  ref={tagInputRef}
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Escape') { setAddingTag(false); setTagInput('') } }}
+                  placeholder="tag name"
+                  className="text-xs bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-indigo-300 outline-none focus:border-indigo-500 flex-1"
+                  autoFocus
+                />
+                <button type="submit" className="text-xs text-indigo-400 hover:text-indigo-300 cursor-pointer">↵</button>
+              </form>
+            )}
           </div>
         )}
       </div>
@@ -341,21 +389,15 @@ function EmptyState({ onCreate, creating }: { onCreate: () => void; creating: bo
     <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
       <div className="w-16 h-16 rounded-2xl bg-gray-900 border border-gray-800 flex items-center justify-center">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-600">
-          <rect x="3" y="3" width="7" height="7" rx="1" />
-          <rect x="14" y="3" width="7" height="7" rx="1" />
-          <rect x="3" y="14" width="7" height="7" rx="1" />
-          <rect x="14" y="14" width="7" height="7" rx="1" />
+          <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+          <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
         </svg>
       </div>
       <div>
         <p className="text-gray-300 font-medium mb-1">No canvases yet</p>
         <p className="text-gray-600 text-sm">Create your first one to get started.</p>
       </div>
-      <button
-        onClick={onCreate}
-        disabled={creating}
-        className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
-      >
+      <button onClick={onCreate} disabled={creating} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-lg text-sm font-semibold transition-colors cursor-pointer">
         {creating ? 'Creating…' : '+ New Canvas'}
       </button>
     </div>

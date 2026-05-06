@@ -3,6 +3,7 @@ import { createContext } from 'react'
 export type ActiveThread = {
   parentType: 'node' | 'edge'
   parentId: string
+  nodeType?: string
 } | null
 
 export type UserRole = 'owner' | 'editor' | 'viewer'
@@ -13,11 +14,12 @@ export type CanvasContextValue = {
   currentUserEmail: string
   preferredLang: 'en' | 'ko'
   setPreferredLang: (lang: 'en' | 'ko') => void
-  openThread: (parentType: 'node' | 'edge', parentId: string) => void
+  openThread: (parentType: 'node' | 'edge', parentId: string, nodeType?: string) => void
   closeThread: () => void
   activeThread: ActiveThread
   commentedIds: Set<string>
   addCommentedId: (id: string) => void
+  deleteNode: (nodeId: string) => void
 }
 
 export const CanvasContext = createContext<CanvasContextValue>({
@@ -31,4 +33,5 @@ export const CanvasContext = createContext<CanvasContextValue>({
   activeThread: null,
   commentedIds: new Set(),
   addCommentedId: () => {},
+  deleteNode: () => {},
 })

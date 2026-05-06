@@ -134,7 +134,7 @@ export function WebsiteNode({ id, data, selected }: NodeProps) {
             {userRole !== 'viewer' && (
               <button
                 className="nodrag nopan"
-                onClick={(e) => { e.stopPropagation(); updateNodeData(id, { url: undefined, embed_status: undefined, screenshot_url: undefined }); setUrlInput('') }}
+                onClick={(e) => { e.stopPropagation(); setUrlInput(d.url ?? ''); updateNodeData(id, { url: undefined, embed_status: undefined, screenshot_url: undefined }) }}
                 title="Edit URL"
                 style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center', flexShrink: 0 }}
                 onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#e5e7eb')}
@@ -235,8 +235,8 @@ export function WebsiteNode({ id, data, selected }: NodeProps) {
             color: hasComments ? '#fbbf24' : '#4b5563',
           opacity: selected || hasComments ? 1 : 0.35, transition: 'opacity 0.15s, color 0.15s',
           }}
-          onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#6366f1')}
-          onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#4b5563')}
+          onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#818cf8')}
+          onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = hasComments ? '#fbbf24' : '#4b5563')}
         >
           <CommentIcon size={12} />
         </button>

@@ -17,10 +17,11 @@ function formatTime(iso: string) {
 }
 
 export function CommentPanel() {
-  const { canvasId, preferredLang, activeThread, closeThread, addCommentedId } = useContext(CanvasContext)
+  const { canvasId, preferredLang, activeThread, closeThread, addCommentedId, deleteNode } = useContext(CanvasContext)
   const [comments, setComments] = useState<Comment[]>([])
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
 
   const fetchComments = useCallback(() => {
@@ -209,6 +210,46 @@ export function CommentPanel() {
           </button>
         </div>
       </div>
+
+      {/* Sticky delete section */}
+      {activeThread?.nodeType === 'sticky_comment' && (
+        <div style={{ padding: '10px 16px', borderTop: '1px solid #1f2937', flexShrink: 0 }}>
+          {!confirmDelete ? (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              style={{
+                width: '100%', background: 'none', border: '1px solid #374151',
+                borderRadius: 8, color: '#6b7280', fontSize: 12, cursor: 'pointer',
+                padding: '6px', fontFamily: 'inherit', transition: 'border-color 0.12s, color 0.12s',
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#ef4444'; (e.currentTarget as HTMLButtonElement).style.color = '#ef4444' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#374151'; (e.currentTarget as HTMLButtonElement).style.color = '#6b7280' }}
+            >
+              Delete sticky note
+            </button>
+          ) : (
+            <div>
+              <p style={{ fontSize: 11, color: '#f87171', margin: '0 0 8px', textAlign: 'center' }}>
+                Delete this sticky and all its comments?
+              </p>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  style={{ flex: 1, background: '#1f2937', border: '1px solid #374151', borderRadius: 8, color: '#e5e7eb', fontSize: 12, cursor: 'pointer', padding: '6px', fontFamily: 'inherit' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => { deleteNode(activeThread.parentId); setConfirmDelete(false) }}
+                  style={{ flex: 1, background: '#7f1d1d', border: 'none', borderRadius: 8, color: 'white', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '6px', fontFamily: 'inherit' }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

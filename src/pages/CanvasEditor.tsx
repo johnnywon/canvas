@@ -25,18 +25,20 @@ import { ImageNode } from '../nodes/ImageNode'
 import { WebsiteNode } from '../nodes/WebsiteNode'
 import { StickyCommentNode } from '../nodes/StickyCommentNode'
 import { ArrowAnchorNode } from '../nodes/ArrowAnchorNode'
+import { ArrowNode } from '../nodes/ArrowNode'
 import { LabeledEdge } from '../edges/LabeledEdge'
 import { ArrowEdge } from '../edges/ArrowEdge'
 import { CommentPanel } from '../components/CommentPanel'
 import { ShareModal } from '../components/ShareModal'
-import { SortGridIcon, LockIcon, UnlockIcon } from '../components/icons'
+import { SortGridIcon, LockIcon, UnlockIcon, VectorToolIcon, ImageToolIcon, WebsiteToolIcon, ArrowToolIcon, StickyToolIcon } from '../components/icons'
 
 const nodeTypes = {
   vector: VectorNode,
   image: ImageNode,
   website: WebsiteNode,
   sticky_comment: StickyCommentNode,
-  arrow_anchor: ArrowAnchorNode,
+  arrow_anchor: ArrowAnchorNode,  // legacy — existing canvases with old arrow system
+  arrow: ArrowNode,
 }
 
 const edgeTypes = {
@@ -156,9 +158,14 @@ function CanvasEditorInner() {
   const isViewer = userRole === 'viewer'
 
   // ── Context ────────────────────────────────────────────────────────────────
-  const openThread = useCallback((parentType: 'node' | 'edge', parentId: string) => {
-    setActiveThread({ parentType, parentId })
+  const openThread = useCallback((parentType: 'node' | 'edge', parentId: string, nodeType?: string) => {
+    setActiveThread({ parentType, parentId, nodeType })
   }, [])
+
+  const deleteNode = useCallback((nodeId: string) => {
+    setNodes((nds) => nds.filter((n) => n.id !== nodeId))
+    setActiveThread(null)
+  }, [setNodes])
 
   const closeThread = useCallback(() => setActiveThread(null), [])
 
@@ -178,7 +185,8 @@ function CanvasEditorInner() {
     activeThread,
     commentedIds,
     addCommentedId,
-  }), [canvasId, userRole, currentUserEmail, preferredLang, setPreferredLang, openThread, closeThread, activeThread, commentedIds, addCommentedId])
+    deleteNode,
+  }), [canvasId, userRole, currentUserEmail, preferredLang, setPreferredLang, openThread, closeThread, activeThread, commentedIds, addCommentedId, deleteNode])
 
   // ── Load canvas ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -323,30 +331,19 @@ function CanvasEditorInner() {
   }, [setNodes])
 
   const addArrow = useCallback(() => {
-    const tailId = crypto.randomUUID()
-    const headId = crypto.randomUUID()
-    const edgeId = crypto.randomUUID()
-    const x = 150 + Math.random() * 280
-    const y = 150 + Math.random() * 180
     setNodes((nds) => [
       ...nds,
-      { id: tailId, type: 'arrow_anchor', position: { x, y }, data: {}, zIndex: 100 },
-      { id: headId, type: 'arrow_anchor', position: { x: x + 160, y }, data: {}, zIndex: 100 },
-    ])
-    setEdges((eds) => [
-      ...eds,
       {
-        id: edgeId,
-        source: tailId,
-        target: headId,
+        id: crypto.randomUUID(),
         type: 'arrow',
-        zIndex: 99,
-        data: { color: '#e5e7eb' },
-        markerEnd: { type: MarkerType.ArrowClosed, width: 22, height: 22, color: '#e5e7eb' },
-        style: { stroke: '#e5e7eb', strokeWidth: 3 },
+        position: { x: 150 + Math.random() * 250, y: 150 + Math.random() * 180 },
+        data: { tailX: 10, tailY: 30, headX: 290, headY: 30, color: '#e5e7eb' },
+        width: 300,
+        height: 60,
+        zIndex: 100,
       },
     ])
-  }, [setNodes, setEdges])
+  }, [setNodes])
 
   const onEdgesDelete = useCallback(
     (deletedEdges: Edge[]) => {
@@ -375,7 +372,7 @@ function CanvasEditorInner() {
 
   const onNodeClick = useCallback(
     (_e: React.MouseEvent, node: Node) => {
-      if (node.type === 'sticky_comment') openThread('node', node.id)
+      if (node.type === 'sticky_comment') openThread('node', node.id, 'sticky_comment')
     },
     [openThread],
   )
@@ -483,23 +480,28 @@ function CanvasEditorInner() {
             </button>
           )}
 
-          {/* Add node toolbar — hidden for viewers */}
+          {/* Add node icon toolbar — hidden for viewers */}
           {!isViewer && (
-            <div style={{ display: 'flex', gap: 6 }}>
-              <ToolbarButton onClick={() => addNode('vector')} label="+ Vector" color="#6366f1" />
-              <ToolbarButton onClick={() => addNode('image')} label="+ Image" color="#0ea5e9" />
-              <ToolbarButton onClick={() => addNode('website')} label="+ Website" color="#10b981" />
-              <ToolbarButton onClick={addArrow} label="↗ Arrow" color="#94a3b8" />
-              <ToolbarButton
-                onClick={() => {
-                  const nodeId = crypto.randomUUID()
-                  setNodes((nds) => [...nds, { id: nodeId, type: 'sticky_comment', position: { x: 200 + Math.random() * 300, y: 150 + Math.random() * 200 }, data: {} }])
-                  openThread('node', nodeId)
-                }}
-                label="+ Sticky"
-                color="#fbbf24"
-              />
-            </div>
+            <>
+              <div style={{ width: 1, height: 22, background: '#1f2937', margin: '0 4px' }} />
+              <div style={{ display: 'flex', gap: 3 }}>
+                <IconToolButton onClick={() => addNode('vector')} icon={<VectorToolIcon />} labelEn="Vector" labelKo="벡터" color="#6366f1" />
+                <IconToolButton onClick={() => addNode('image')} icon={<ImageToolIcon />} labelEn="Image" labelKo="이미지" color="#0ea5e9" />
+                <IconToolButton onClick={() => addNode('website')} icon={<WebsiteToolIcon />} labelEn="Website" labelKo="웹사이트" color="#10b981" />
+                <IconToolButton onClick={addArrow} icon={<ArrowToolIcon />} labelEn="Arrow" labelKo="화살표" color="#94a3b8" />
+                <IconToolButton
+                  onClick={() => {
+                    const nodeId = crypto.randomUUID()
+                    setNodes((nds) => [...nds, { id: nodeId, type: 'sticky_comment', position: { x: 200 + Math.random() * 300, y: 150 + Math.random() * 200 }, data: {} }])
+                    openThread('node', nodeId, 'sticky_comment')
+                  }}
+                  icon={<StickyToolIcon />}
+                  labelEn="Sticky Note"
+                  labelKo="스티커"
+                  color="#fbbf24"
+                />
+              </div>
+            </>
           )}
         </div>
 
@@ -578,19 +580,48 @@ function CanvasEditorInner() {
   )
 }
 
-function ToolbarButton({ onClick, label, color }: { onClick: () => void; label: string; color: string }) {
+function IconToolButton({
+  onClick, icon, labelEn, labelKo, color,
+}: {
+  onClick: () => void
+  icon: React.ReactNode
+  labelEn: string
+  labelKo: string
+  color: string
+}) {
+  const [tip, setTip] = useState(false)
   return (
-    <button
-      onClick={onClick}
-      style={{
-        background: 'transparent', border: `1.5px solid ${color}`, borderRadius: 8,
-        color, fontSize: 12, fontWeight: 600, padding: '4px 12px', cursor: 'pointer',
-        fontFamily: 'system-ui, sans-serif', transition: 'background 0.12s ease',
-      }}
-      onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = `${color}22`)}
-      onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'transparent')}
-    >
-      {label}
-    </button>
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={onClick}
+        onMouseEnter={() => setTip(true)}
+        onMouseLeave={() => setTip(false)}
+        style={{
+          width: 32, height: 32, background: 'transparent',
+          border: `1.5px solid ${color}44`, borderRadius: 8,
+          color, cursor: 'pointer', display: 'flex',
+          alignItems: 'center', justifyContent: 'center',
+          transition: 'background 0.12s, border-color 0.12s',
+          fontFamily: 'system-ui, sans-serif',
+        }}
+        onFocus={() => setTip(true)}
+        onBlur={() => setTip(false)}
+      >
+        {icon}
+      </button>
+      {tip && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 6px)', left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#0d1117', border: '1px solid #374151',
+          borderRadius: 8, padding: '5px 10px', zIndex: 999,
+          whiteSpace: 'nowrap', pointerEvents: 'none',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+        }}>
+          <div style={{ fontSize: 11, color: '#f9fafb', fontWeight: 600 }}>{labelEn}</div>
+          <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>{labelKo}</div>
+        </div>
+      )}
+    </div>
   )
 }
