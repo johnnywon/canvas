@@ -24,7 +24,9 @@ import { VectorNode } from '../nodes/VectorNode'
 import { ImageNode } from '../nodes/ImageNode'
 import { WebsiteNode } from '../nodes/WebsiteNode'
 import { StickyCommentNode } from '../nodes/StickyCommentNode'
+import { ArrowAnchorNode } from '../nodes/ArrowAnchorNode'
 import { LabeledEdge } from '../edges/LabeledEdge'
+import { ArrowEdge } from '../edges/ArrowEdge'
 import { CommentPanel } from '../components/CommentPanel'
 import { ShareModal } from '../components/ShareModal'
 import { SortGridIcon, LockIcon, UnlockIcon } from '../components/icons'
@@ -34,10 +36,12 @@ const nodeTypes = {
   image: ImageNode,
   website: WebsiteNode,
   sticky_comment: StickyCommentNode,
+  arrow_anchor: ArrowAnchorNode,
 }
 
 const edgeTypes = {
   labeled: LabeledEdge,
+  arrow: ArrowEdge,
 }
 
 const defaultEdgeOptions = {
@@ -84,7 +88,20 @@ function toFlowNode(n: DBNode): Node {
   }
 }
 
-function toFlowEdge(e: DBEdge): Edge {
+function toFlowEdge(e: DBEdge, nodeTypeMap: Map<string, string>): Edge {
+  const isArrow =
+    nodeTypeMap.get(e.source) === 'arrow_anchor' ||
+    nodeTypeMap.get(e.target) === 'arrow_anchor'
+  if (isArrow) {
+    return {
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      type: 'arrow',
+      markerEnd: { type: MarkerType.ArrowClosed, width: 22, height: 22, color: '#e5e7eb' },
+      style: { stroke: '#e5e7eb', strokeWidth: 3 },
+    }
+  }
   return {
     id: e.id,
     source: e.source,
@@ -168,8 +185,11 @@ function CanvasEditorInner() {
         setCurrentUserEmail(me.email)
         setCanvas(data.canvas)
         setUserRole((data.canvas.userRole as UserRole) ?? 'viewer')
+        const nodeTypeMap = new Map<string, string>(
+          data.nodes.map((n: DBNode) => [n.id, n.type])
+        )
         setNodes(data.nodes.map(toFlowNode))
-        setEdges(data.edges.map(toFlowEdge))
+        setEdges(data.edges.map((e: DBEdge) => toFlowEdge(e, nodeTypeMap)))
         requestAnimationFrame(() => { isLoadedRef.current = true })
       })
       .catch(() => navigate('/canvases'))
@@ -262,18 +282,67 @@ function CanvasEditorInner() {
   }, [nameDraft, canvasId])
 
   const sortNodes = useCallback(() => {
-    const CELL_W = 260, CELL_H = 180, GAP_X = 48, GAP_Y = 48, PAD = 60
     setNodes((nds) => {
+      if (!nds.length) return nds
+      const GAP = 48, PAD = 60
       const cols = Math.max(1, Math.round(Math.sqrt(nds.length * 1.2)))
-      return nds.map((node, i) => ({
-        ...node,
-        position: {
-          x: PAD + (i % cols) * (CELL_W + GAP_X),
-          y: PAD + Math.floor(i / cols) * (CELL_H + GAP_Y),
-        },
-      }))
+      // Sort by current canvas position so the visual order is preserved
+      const sorted = [...nds].sort((a, b) =>
+        a.position.y !== b.position.y
+          ? a.position.y - b.position.y
+          : a.position.x - b.position.x
+      )
+      let curX = PAD, curY = PAD, rowMaxH = 0, col = 0
+      return sorted.map((node) => {
+        const w = node.measured?.width ?? 220
+        const h = node.measured?.height ?? 160
+        if (col > 0 && col >= cols) {
+          curX = PAD; curY += rowMaxH + GAP; rowMaxH = 0; col = 0
+        }
+        const pos = { x: curX, y: curY }
+        curX += w + GAP
+        rowMaxH = Math.max(rowMaxH, h)
+        col++
+        return { ...node, position: pos }
+      })
     })
   }, [setNodes])
+
+  const addArrow = useCallback(() => {
+    const tailId = crypto.randomUUID()
+    const headId = crypto.randomUUID()
+    const edgeId = crypto.randomUUID()
+    const x = 150 + Math.random() * 280
+    const y = 150 + Math.random() * 180
+    setNodes((nds) => [
+      ...nds,
+      { id: tailId, type: 'arrow_anchor', position: { x, y }, data: {} },
+      { id: headId, type: 'arrow_anchor', position: { x: x + 160, y }, data: {} },
+    ])
+    setEdges((eds) => [
+      ...eds,
+      {
+        id: edgeId,
+        source: tailId,
+        target: headId,
+        type: 'arrow',
+        markerEnd: { type: MarkerType.ArrowClosed, width: 22, height: 22, color: '#e5e7eb' },
+        style: { stroke: '#e5e7eb', strokeWidth: 3 },
+      },
+    ])
+  }, [setNodes, setEdges])
+
+  const onEdgesDelete = useCallback(
+    (deletedEdges: Edge[]) => {
+      const anchorIds = new Set(
+        deletedEdges
+          .filter((e) => e.type === 'arrow')
+          .flatMap((e) => [e.source, e.target])
+      )
+      if (anchorIds.size) setNodes((nds) => nds.filter((n) => !anchorIds.has(n.id)))
+    },
+    [setNodes],
+  )
 
   const onNodeClick = useCallback(
     (_e: React.MouseEvent, node: Node) => {
@@ -391,6 +460,7 @@ function CanvasEditorInner() {
               <ToolbarButton onClick={() => addNode('vector')} label="+ Vector" color="#6366f1" />
               <ToolbarButton onClick={() => addNode('image')} label="+ Image" color="#0ea5e9" />
               <ToolbarButton onClick={() => addNode('website')} label="+ Website" color="#10b981" />
+              <ToolbarButton onClick={addArrow} label="↗ Arrow" color="#94a3b8" />
               <ToolbarButton
                 onClick={() => {
                   const nodeId = crypto.randomUUID()
@@ -419,6 +489,7 @@ function CanvasEditorInner() {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={isViewer ? undefined : onConnect}
+            onEdgesDelete={onEdgesDelete}
             onPaneClick={() => setActiveThread(null)}
             onNodeClick={onNodeClick}
             nodeTypes={nodeTypes}

@@ -60,7 +60,6 @@ export function ImageNode({ id, data, selected }: NodeProps) {
 
   return (
     <div
-      className="nodrag"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -77,7 +76,7 @@ export function ImageNode({ id, data, selected }: NodeProps) {
         outline: 'none',
         boxShadow: selected ? '0 0 0 3px rgba(99,102,241,0.2)' : 'none',
         transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-        cursor: nodeData.imageUrl ? 'default' : 'pointer',
+        cursor: nodeData.imageUrl ? 'grab' : 'pointer',
       }}
       onClick={() => { if (!nodeData.imageUrl) fileInputRef.current?.click() }}
     >
