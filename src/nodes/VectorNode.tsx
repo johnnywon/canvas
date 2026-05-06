@@ -5,15 +5,27 @@ import { CommentIcon, PencilIcon } from '../components/icons'
 
 export type VectorNodeData = {
   label?: string
+  color?: string
 }
+
+const VECTOR_COLORS = [
+  { name: 'default', border: '#374151', bg: '#111827', accent: '#6b7280' },
+  { name: 'indigo',  border: '#6366f1', bg: '#1e1b4b', accent: '#818cf8' },
+  { name: 'sky',     border: '#0ea5e9', bg: '#0c2340', accent: '#38bdf8' },
+  { name: 'emerald', border: '#10b981', bg: '#064e3b', accent: '#34d399' },
+  { name: 'rose',    border: '#f43f5e', bg: '#4c0519', accent: '#fb7185' },
+]
 
 export function VectorNode({ id, data, selected }: NodeProps) {
   const { updateNodeData } = useReactFlow()
-  const { openThread, userRole } = useContext(CanvasContext)
+  const { openThread, userRole, commentedIds } = useContext(CanvasContext)
   const nodeData = data as VectorNodeData
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(nodeData.label ?? '')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const colorPreset = VECTOR_COLORS.find((c) => c.name === nodeData.color) ?? VECTOR_COLORS[0]
+  const hasComments = commentedIds.has(id)
 
   useEffect(() => {
     if (!editing) setDraft(nodeData.label ?? '')
@@ -31,11 +43,14 @@ export function VectorNode({ id, data, selected }: NodeProps) {
     updateNodeData(id, { label: draft })
   }, [id, draft, updateNodeData])
 
-  const startEditing = useCallback((e: React.MouseEvent) => {
-    if (userRole === 'viewer') return
-    e.stopPropagation()
-    setEditing(true)
-  }, [userRole])
+  const startEditing = useCallback(
+    (e: React.MouseEvent) => {
+      if (userRole === 'viewer') return
+      e.stopPropagation()
+      setEditing(true)
+    },
+    [userRole],
+  )
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commit() }
@@ -51,15 +66,15 @@ export function VectorNode({ id, data, selected }: NodeProps) {
         minWidth: 120,
         minHeight: 60,
         borderRadius: 12,
-        border: `2px solid ${selected ? '#6366f1' : '#374151'}`,
-        background: selected ? '#1e1b4b' : '#111827',
+        border: `2px solid ${selected ? colorPreset.accent : colorPreset.border}`,
+        background: colorPreset.bg,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         padding: '12px 16px 28px',
         cursor: editing ? 'text' : 'default',
         transition: 'border-color 0.15s ease, background 0.15s ease',
-        boxShadow: selected ? '0 0 0 3px rgba(99,102,241,0.2)' : 'none',
+        boxShadow: selected ? `0 0 0 3px ${colorPreset.accent}33` : 'none',
         position: 'relative',
         boxSizing: 'border-box',
       }}
@@ -70,18 +85,18 @@ export function VectorNode({ id, data, selected }: NodeProps) {
         minHeight={60}
         handleStyle={{
           width: 14, height: 14,
-          backgroundColor: '#6366f1',
+          backgroundColor: colorPreset.accent,
           border: '2px solid #030712',
           borderRadius: 3,
           zIndex: 10,
         }}
-        lineStyle={{ borderColor: '#6366f1', borderWidth: 1.5 }}
+        lineStyle={{ borderColor: colorPreset.accent, borderWidth: 1.5 }}
       />
 
       <Handle type="target" position={Position.Left} />
       <Handle type="target" position={Position.Top} id="top-target" />
 
-      {/* Edit pencil icon — single click to edit */}
+      {/* Edit button */}
       {!editing && userRole !== 'viewer' && (
         <button
           className="nodrag nopan"
@@ -91,19 +106,19 @@ export function VectorNode({ id, data, selected }: NodeProps) {
           style={{
             position: 'absolute', top: 6, right: 6,
             background: 'none', border: 'none',
-            color: '#4b5563', cursor: 'pointer',
-            padding: '3px', borderRadius: 4,
-            display: 'flex', alignItems: 'center',
+            color: '#4b5563', cursor: 'pointer', padding: '3px',
+            borderRadius: 4, display: 'flex', alignItems: 'center',
             opacity: selected ? 1 : 0,
             transition: 'opacity 0.15s, color 0.15s',
           }}
-          onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#818cf8')}
+          onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = colorPreset.accent)}
           onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#4b5563')}
         >
           <PencilIcon size={11} />
         </button>
       )}
 
+      {/* Text content */}
       {editing ? (
         <textarea
           ref={textareaRef}
@@ -124,13 +139,38 @@ export function VectorNode({ id, data, selected }: NodeProps) {
         <span
           style={{
             fontSize: 13, fontWeight: 500,
-            color: draft ? '#f3f4f6' : '#4b5563',
+            color: draft ? '#f3f4f6' : `${colorPreset.accent}88`,
             textAlign: 'center', lineHeight: 1.5,
             userSelect: 'none', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
           }}
         >
           {draft || 'Double-click to edit'}
         </span>
+      )}
+
+      {/* Color swatches */}
+      {selected && !editing && userRole !== 'viewer' && (
+        <div
+          style={{ position: 'absolute', bottom: 6, left: 8, display: 'flex', gap: 4 }}
+          className="nodrag nopan"
+        >
+          {VECTOR_COLORS.map((c) => {
+            const active = (nodeData.color ?? 'default') === c.name
+            return (
+              <button
+                key={c.name}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); updateNodeData(id, { color: c.name }) }}
+                style={{
+                  width: 12, height: 12, borderRadius: '50%',
+                  background: c.accent, padding: 0,
+                  border: active ? '2px solid white' : '1.5px solid rgba(255,255,255,0.2)',
+                  cursor: 'pointer',
+                }}
+              />
+            )
+          })}
+        </div>
       )}
 
       {/* Comment button */}
@@ -141,14 +181,15 @@ export function VectorNode({ id, data, selected }: NodeProps) {
         title="Comments"
         style={{
           position: 'absolute', bottom: 6, right: 8,
-          background: 'none', border: 'none',
-          color: '#4b5563', cursor: 'pointer', padding: '2px 3px',
-          borderRadius: 4, display: 'flex', alignItems: 'center',
-          opacity: selected ? 1 : 0.35,
+          background: 'none', border: 'none', cursor: 'pointer',
+          padding: '2px 3px', borderRadius: 4,
+          display: 'flex', alignItems: 'center',
+          color: hasComments ? '#fbbf24' : '#4b5563',
+          opacity: selected || hasComments ? 1 : 0.35,
           transition: 'opacity 0.15s, color 0.15s',
         }}
-        onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#6366f1')}
-        onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#4b5563')}
+        onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = hasComments ? '#fbbf24' : colorPreset.accent)}
+        onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = hasComments ? '#fbbf24' : '#4b5563')}
       >
         <CommentIcon size={12} />
       </button>

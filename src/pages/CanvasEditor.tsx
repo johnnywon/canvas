@@ -85,6 +85,7 @@ function toFlowNode(n: DBNode): Node {
     data: (typeof n.data === 'string' ? JSON.parse(n.data) : n.data) as Record<string, unknown>,
     ...(n.width != null ? { width: n.width } : {}),
     ...(n.height != null ? { height: n.height } : {}),
+    ...(n.type === 'arrow_anchor' ? { zIndex: 100 } : {}),
   }
 }
 
@@ -93,13 +94,16 @@ function toFlowEdge(e: DBEdge, nodeTypeMap: Map<string, string>): Edge {
     nodeTypeMap.get(e.source) === 'arrow_anchor' ||
     nodeTypeMap.get(e.target) === 'arrow_anchor'
   if (isArrow) {
+    const color = e.label?.startsWith('#') ? e.label : '#e5e7eb'
     return {
       id: e.id,
       source: e.source,
       target: e.target,
       type: 'arrow',
-      markerEnd: { type: MarkerType.ArrowClosed, width: 22, height: 22, color: '#e5e7eb' },
-      style: { stroke: '#e5e7eb', strokeWidth: 3 },
+      zIndex: 99,
+      data: { color },
+      style: { stroke: color, strokeWidth: 3 },
+      markerEnd: { type: MarkerType.ArrowClosed, width: 22, height: 22, color },
     }
   }
   return {
@@ -134,6 +138,10 @@ function CanvasEditorInner() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [activeThread, setActiveThread] = useState<ActiveThread>(null)
+  const [commentedIds, setCommentedIds] = useState<Set<string>>(new Set())
+  const addCommentedId = useCallback((id: string) => {
+    setCommentedIds((s) => new Set([...s, id]))
+  }, [])
   const [shareOpen, setShareOpen] = useState(false)
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
@@ -168,7 +176,9 @@ function CanvasEditorInner() {
     openThread,
     closeThread,
     activeThread,
-  }), [canvasId, userRole, currentUserEmail, preferredLang, setPreferredLang, openThread, closeThread, activeThread])
+    commentedIds,
+    addCommentedId,
+  }), [canvasId, userRole, currentUserEmail, preferredLang, setPreferredLang, openThread, closeThread, activeThread, commentedIds, addCommentedId])
 
   // ── Load canvas ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -178,7 +188,7 @@ function CanvasEditorInner() {
       fetch('/api/me').then((r) => r.json() as Promise<{ email: string }>),
       fetch(`/api/canvases/${canvasId}`).then((r) => {
         if (!r.ok) throw new Error('Not found')
-        return r.json() as Promise<{ canvas: CanvasData; nodes: DBNode[]; edges: DBEdge[] }>
+        return r.json() as Promise<{ canvas: CanvasData; nodes: DBNode[]; edges: DBEdge[]; commentedIds: string[] }>
       }),
     ])
       .then(([me, data]) => {
@@ -188,6 +198,7 @@ function CanvasEditorInner() {
         const nodeTypeMap = new Map<string, string>(
           data.nodes.map((n: DBNode) => [n.id, n.type])
         )
+        setCommentedIds(new Set(data.commentedIds ?? []))
         setNodes(data.nodes.map(toFlowNode))
         setEdges(data.edges.map((e: DBEdge) => toFlowEdge(e, nodeTypeMap)))
         requestAnimationFrame(() => { isLoadedRef.current = true })
@@ -220,7 +231,10 @@ function CanvasEditorInner() {
               id: e.id,
               source: e.source,
               target: e.target,
-              label: typeof e.label === 'string' ? e.label : null,
+              // Arrow edges: store color in label column (arrow edges have no text label)
+              label: e.type === 'arrow'
+                ? ((e.data as { color?: string } | undefined)?.color ?? null)
+                : (typeof e.label === 'string' ? e.label : null),
             })),
           }),
         })
@@ -316,8 +330,8 @@ function CanvasEditorInner() {
     const y = 150 + Math.random() * 180
     setNodes((nds) => [
       ...nds,
-      { id: tailId, type: 'arrow_anchor', position: { x, y }, data: {} },
-      { id: headId, type: 'arrow_anchor', position: { x: x + 160, y }, data: {} },
+      { id: tailId, type: 'arrow_anchor', position: { x, y }, data: {}, zIndex: 100 },
+      { id: headId, type: 'arrow_anchor', position: { x: x + 160, y }, data: {}, zIndex: 100 },
     ])
     setEdges((eds) => [
       ...eds,
@@ -326,6 +340,8 @@ function CanvasEditorInner() {
         source: tailId,
         target: headId,
         type: 'arrow',
+        zIndex: 99,
+        data: { color: '#e5e7eb' },
         markerEnd: { type: MarkerType.ArrowClosed, width: 22, height: 22, color: '#e5e7eb' },
         style: { stroke: '#e5e7eb', strokeWidth: 3 },
       },
@@ -340,6 +356,19 @@ function CanvasEditorInner() {
           .flatMap((e) => [e.source, e.target])
       )
       if (anchorIds.size) setNodes((nds) => nds.filter((n) => !anchorIds.has(n.id)))
+    },
+    [setNodes],
+  )
+
+  const onEdgeClick = useCallback(
+    (_e: React.MouseEvent, edge: Edge) => {
+      if (edge.type !== 'arrow') return
+      // Select both anchor nodes so multi-drag moves the whole arrow
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === edge.source || n.id === edge.target ? { ...n, selected: true } : n
+        )
+      )
     },
     [setNodes],
   )
@@ -373,7 +402,7 @@ function CanvasEditorInner() {
             onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#e5e7eb')}
             onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#6b7280')}
           >
-            ← Canvases
+            ← Home
           </button>
 
           <div style={{ width: 1, height: 20, background: '#1f2937' }} />
@@ -489,6 +518,7 @@ function CanvasEditorInner() {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={isViewer ? undefined : onConnect}
+            onEdgeClick={onEdgeClick}
             onEdgesDelete={onEdgesDelete}
             onPaneClick={() => setActiveThread(null)}
             onNodeClick={onNodeClick}

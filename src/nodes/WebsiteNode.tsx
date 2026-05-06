@@ -11,8 +11,9 @@ export type WebsiteNodeData = {
 
 export function WebsiteNode({ id, data, selected }: NodeProps) {
   const { updateNodeData } = useReactFlow()
-  const { openThread } = useContext(CanvasContext)
+  const { openThread, commentedIds } = useContext(CanvasContext)
   const d = data as WebsiteNodeData
+  const hasComments = commentedIds.has(id)
 
   const [urlInput, setUrlInput] = useState(d.url ?? '')
   const iframeLoadedRef = useRef(false)
@@ -109,9 +110,42 @@ export function WebsiteNode({ id, data, selected }: NodeProps) {
         </svg>
 
         {d.url ? (
-          <span style={{ flex: 1, fontSize: 11, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {d.url}
-          </span>
+          <>
+            <span style={{ flex: 1, fontSize: 11, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {d.url}
+            </span>
+            {/* Open in new tab */}
+            <a
+              href={d.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="nodrag nopan"
+              onClick={(e) => e.stopPropagation()}
+              title="Open in new tab"
+              style={{ color: '#6b7280', display: 'flex', alignItems: 'center', flexShrink: 0, textDecoration: 'none' }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = '#10b981')}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = '#6b7280')}
+            >
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-4M10 2h4v4M14 2 7 9" />
+              </svg>
+            </a>
+            {/* Edit URL */}
+            {userRole !== 'viewer' && (
+              <button
+                className="nodrag nopan"
+                onClick={(e) => { e.stopPropagation(); updateNodeData(id, { url: undefined, embed_status: undefined, screenshot_url: undefined }); setUrlInput('') }}
+                title="Edit URL"
+                style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#e5e7eb')}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#6b7280')}
+              >
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M11.5 1.5a2.121 2.121 0 0 1 3 3L5 14l-4 1 1-4L11.5 1.5z" />
+                </svg>
+              </button>
+            )}
+          </>
         ) : (
           <form onSubmit={handleSubmit} style={{ flex: 1, display: 'flex', gap: 6 }} className="nodrag nopan">
             <input
@@ -196,9 +230,10 @@ export function WebsiteNode({ id, data, selected }: NodeProps) {
           onClick={(e) => { e.stopPropagation(); openThread('node', id) }}
           title="Comments"
           style={{
-            background: 'none', border: 'none', color: '#4b5563', cursor: 'pointer',
+            background: 'none', border: 'none', cursor: 'pointer',
             padding: '2px 4px', borderRadius: 4, display: 'flex', alignItems: 'center',
-            opacity: selected ? 1 : 0.35, transition: 'opacity 0.15s, color 0.15s',
+            color: hasComments ? '#fbbf24' : '#4b5563',
+          opacity: selected || hasComments ? 1 : 0.35, transition: 'opacity 0.15s, color 0.15s',
           }}
           onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#6366f1')}
           onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#4b5563')}

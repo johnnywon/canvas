@@ -16,6 +16,8 @@ export type CanvasContextValue = {
   openThread: (parentType: 'node' | 'edge', parentId: string) => void
   closeThread: () => void
   activeThread: ActiveThread
+  commentedIds: Set<string>
+  addCommentedId: (id: string) => void
 }
 
 export const CanvasContext = createContext<CanvasContextValue>({
@@ -27,4 +29,6 @@ export const CanvasContext = createContext<CanvasContextValue>({
   openThread: () => {},
   closeThread: () => {},
   activeThread: null,
+  commentedIds: new Set(),
+  addCommentedId: () => {},
 })

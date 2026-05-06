@@ -17,7 +17,7 @@ function formatTime(iso: string) {
 }
 
 export function CommentPanel() {
-  const { canvasId, preferredLang, activeThread, closeThread } = useContext(CanvasContext)
+  const { canvasId, preferredLang, activeThread, closeThread, addCommentedId } = useContext(CanvasContext)
   const [comments, setComments] = useState<Comment[]>([])
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -63,6 +63,7 @@ export function CommentPanel() {
         }),
       })
       setText('')
+      if (activeThread) addCommentedId(activeThread.parentId)
       fetchComments()
     } finally {
       setSubmitting(false)
@@ -77,8 +78,6 @@ export function CommentPanel() {
   }
 
   if (!activeThread) return null
-
-  const threadLabel = activeThread.parentType === 'edge' ? 'Edge' : 'Node'
 
   return (
     <div
@@ -112,7 +111,7 @@ export function CommentPanel() {
           <path d="M14 1H2C1.45 1 1 1.45 1 2v9c0 .55.45 1 1 1h3v3l3-3h6c.55 0 1-.45 1-1V2c0-.55-.45-1-1-1z" />
         </svg>
         <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#f9fafb' }}>
-          {threadLabel} comments
+          Comments
         </span>
         <button
           onClick={closeThread}
@@ -162,7 +161,7 @@ export function CommentPanel() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Write a comment… (EN or KO)"
+          placeholder="Write a comment"
           rows={3}
           style={{
             width: '100%',

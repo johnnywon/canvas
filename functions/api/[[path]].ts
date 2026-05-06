@@ -130,9 +130,12 @@ app.get('/api/canvases/:id', async (c) => {
 
   if (!canvas) return c.json({ error: 'Not found' }, 404)
 
-  const [nodesRes, edgesRes] = await Promise.all([
+  const [nodesRes, edgesRes, commentedRes] = await Promise.all([
     c.env.DB.prepare('SELECT * FROM nodes WHERE canvas_id = ?').bind(canvasId).all<NodeRow>(),
     c.env.DB.prepare('SELECT * FROM edges WHERE canvas_id = ?').bind(canvasId).all<EdgeRow>(),
+    c.env.DB.prepare(
+      "SELECT DISTINCT parent_id FROM comments WHERE canvas_id = ? AND parent_type IN ('node','edge') AND parent_id IS NOT NULL"
+    ).bind(canvasId).all<{ parent_id: string }>(),
   ])
 
   return c.json({
@@ -144,6 +147,7 @@ app.get('/api/canvases/:id', async (c) => {
       target: e.target_node_id,
       label: e.label ?? null,
     })),
+    commentedIds: commentedRes.results.map((r) => r.parent_id),
   })
 })
 

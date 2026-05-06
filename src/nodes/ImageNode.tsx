@@ -9,8 +9,9 @@ export type ImageNodeData = {
 
 export function ImageNode({ id, data, selected }: NodeProps) {
   const { updateNodeData } = useReactFlow()
-  const { openThread } = useContext(CanvasContext)
+  const { openThread, commentedIds } = useContext(CanvasContext)
   const nodeData = data as ImageNodeData
+  const hasComments = commentedIds.has(id)
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -124,16 +125,16 @@ export function ImageNode({ id, data, selected }: NodeProps) {
               background: 'rgba(0,0,0,0.6)',
               border: '1px solid rgba(255,255,255,0.1)',
               borderRadius: 6,
-              color: '#6b7280',
+              color: hasComments ? '#fbbf24' : '#6b7280',
               cursor: 'pointer',
               padding: '3px 5px',
               display: 'flex',
               alignItems: 'center',
-              opacity: selected ? 1 : 0,
+              opacity: selected || hasComments ? 1 : 0,
               transition: 'opacity 0.15s ease, color 0.15s',
             }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#6366f1')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#6b7280')}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#fbbf24')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = hasComments ? '#fbbf24' : '#6b7280')}
           >
             <CommentIcon size={12} />
           </button>
