@@ -1,6 +1,9 @@
 # Secrets
 .dev.vars
 
+# Wrangler local state
+.wrangler/
+
 # Logs
 logs
 *.log

@@ -18,7 +18,9 @@
       "Bash(npx tsc *)",
       "Bash(pkill -f \"vite\")",
       "Bash(pkill -f \"wrangler\")",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "Bash(git rm *)",
+      "Bash(git commit -m 'chore: gitignore .wrangler/ local state *)"
     ]
   }
 }
