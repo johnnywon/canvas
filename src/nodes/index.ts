@@ -1,4 +1,7 @@
 export { VectorNode } from './VectorNode'
 export { ImageNode } from './ImageNode'
+export { WebsiteNode } from './WebsiteNode'
+export { StickyCommentNode } from './StickyCommentNode'
 export type { VectorNodeData } from './VectorNode'
 export type { ImageNodeData } from './ImageNode'
+export type { WebsiteNodeData } from './WebsiteNode'

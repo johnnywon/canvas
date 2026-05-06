@@ -11,8 +11,8 @@
     "preview": "wrangler pages dev ./dist",
     "deploy": "npm run build && wrangler pages deploy dist",
     "lint": "eslint .",
-    "migrations:local": "wrangler d1 migrations apply pulson-canvas-db --local",
-    "migrations:remote": "wrangler d1 migrations apply pulson-canvas-db"
+    "migrations:local": "wrangler d1 migrations apply DB --local",
+    "migrations:remote": "wrangler d1 migrations apply DB"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.4",

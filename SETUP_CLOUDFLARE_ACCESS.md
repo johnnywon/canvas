@@ -138,3 +138,83 @@ If you want `canvas.pulsead.io` instead of `pulson-canvas.pages.dev`:
 | "Access denied" for valid team members | Check the policy rule — confirm the email domain matches exactly |
 | Localhost shows the Access login page | Access only applies to the deployed Pages URL, not `localhost`. This is expected. |
 | `Cf-Access-Authenticated-User-Email` is missing in prod | The app is not behind Access. Re-check that the Application domain in Step 4 matches your Pages URL |
+
+---
+
+## Phase 2 setup
+
+### New secrets
+
+Three Worker secrets are required. Run each command, then paste the value at the prompt — input is masked and never echoes back.
+
+#### 1. Anthropic API key (for comment translation)
+
+```bash
+wrangler secret put ANTHROPIC_API_KEY
+```
+
+Prompt: `Enter a secret value:` — paste your key (starts with `sk-ant-...`). Press Enter.  
+You'll see: `✅ Success! Uploaded secret ANTHROPIC_API_KEY`
+
+#### 2. Cloudflare account ID (for Browser Rendering)
+
+```bash
+wrangler secret put CF_ACCOUNT_ID
+```
+
+Prompt: `Enter a secret value:` — paste your 32-character hex account ID.  
+Find it at: dash.cloudflare.com → left sidebar shows "Account ID" at the bottom, or top-right profile dropdown.
+
+#### 3. Cloudflare API token (for Browser Rendering)
+
+First, create the token:
+1. Go to dash.cloudflare.com → top-right avatar → **My Profile**
+2. Click **API Tokens → Create Token → Custom token**
+3. Token name: `Canvas Browser Rendering`
+4. Permissions: **Browser Rendering: Edit** (under Account)
+5. Account Resources: Include → your account
+6. Click **Continue to Summary → Create Token**
+7. Copy the token — it's only shown once
+
+Then run:
+```bash
+wrangler secret put CF_API_TOKEN
+```
+
+Prompt: `Enter a secret value:` — paste the token. Press Enter.  
+You'll see: `✅ Success! Uploaded secret CF_API_TOKEN`
+
+#### Local development
+
+Create `.dev.vars` in the project root (already in `.gitignore`):
+
+```
+ANTHROPIC_API_KEY=sk-ant-...
+CF_ACCOUNT_ID=your-32-char-hex-id
+CF_API_TOKEN=your-api-token
+```
+
+Wrangler picks this file up automatically when running `npm run dev:worker`.
+
+---
+
+### Enable Cloudflare Browser Rendering
+
+Browser Rendering is a paid Cloudflare Workers feature. You need to enable it before screenshots will work.
+
+1. Go to dash.cloudflare.com → **Workers & Pages** (left sidebar)
+2. Click **Plans** (or look for a "Browser Rendering" section)
+3. Ensure you are on the **Workers Paid plan** ($5/month) — Browser Rendering is not available on the free tier
+4. Once on the paid plan, Browser Rendering is automatically available to your account — no separate activation needed
+5. Verify it works by hitting `POST /api/screenshot` with `{ "url": "https://example.com" }` after deploying
+
+> **Note:** In local dev (`npm run dev:all`), the screenshot endpoint will call the real Cloudflare Browser Rendering REST API using the credentials in `.dev.vars`. There is no local emulator for this service.
+
+---
+
+### No migration needed for Phase 2
+
+The schema from Phase 1 already includes all columns needed for Phase 2:
+- `edges.label` — edge labels ✓
+- `nodes.type` CHECK includes `'website'` and `'sticky_comment'` ✓
+- `comments` table — fully spec'd for translation ✓
