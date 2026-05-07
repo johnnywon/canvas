@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react'
-import { Handle, NodeResizer, Position, useReactFlow, type NodeProps, type ReactFlowInstance } from '@xyflow/react'
+import { Handle, NodeResizeControl, Position, useReactFlow, type NodeProps, type ReactFlowInstance } from '@xyflow/react'
 import { CanvasContext } from '../contexts/CanvasContext'
 import { CommentIcon, PencilIcon } from '../components/icons'
 
@@ -194,20 +194,32 @@ export function VectorNode({ id, data, selected }: NodeProps) {
         boxSizing: 'border-box',
       }}
     >
-      <NodeResizer
-        isVisible={selected && !editing && userRole !== 'viewer'}
-        minWidth={120}
-        minHeight={60}
-        onResize={syncResize}
-        handleStyle={{
-          width: 14, height: 14,
-          backgroundColor: colorPreset.accent,
-          border: '2px solid #030712',
-          borderRadius: 3,
-          zIndex: 10,
-        }}
-        lineStyle={{ borderColor: colorPreset.accent, borderWidth: 1.5 }}
-      />
+      {selected && !editing && userRole !== 'viewer' && (
+        <>
+          {(
+            ['top-left','top','top-right','right','bottom-right','bottom','bottom-left','left'] as const
+          ).map(pos => (
+            <NodeResizeControl
+              key={pos}
+              position={pos}
+              minWidth={120}
+              minHeight={60}
+              onResize={syncResize}
+              style={{
+                width: 12,
+                height: 12,
+                background: colorPreset.accent,
+                border: '2px solid #030712',
+                borderRadius: pos.includes('-') ? 3 : 2,
+                zIndex: 10,
+                cursor: pos === 'top' || pos === 'bottom' ? 'ns-resize'
+                  : pos === 'left' || pos === 'right' ? 'ew-resize'
+                  : undefined,
+              }}
+            />
+          ))}
+        </>
+      )}
 
       <Handle type="target" position={Position.Left} />
       <Handle type="target" position={Position.Top} id="top-target" />
