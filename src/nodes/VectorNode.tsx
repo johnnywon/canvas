@@ -116,7 +116,20 @@ const VECTOR_COLORS = [
 ]
 
 export function VectorNode({ id, data, selected }: NodeProps) {
-  const { updateNodeData, deleteElements } = useReactFlow()
+  const { updateNodeData, deleteElements, setNodes, getNodes } = useReactFlow()
+
+  // When this node is resized, apply the same dimensions to all other selected vectors
+  const syncResize = useCallback(
+    (_e: unknown, params: { width: number; height: number }) => {
+      const peers = getNodes().filter(n => n.selected && n.type === 'vector' && n.id !== id)
+      if (!peers.length) return
+      const ids = new Set(peers.map(n => n.id))
+      setNodes(nds => nds.map(n =>
+        ids.has(n.id) ? { ...n, width: params.width, height: params.height } : n
+      ))
+    },
+    [id, getNodes, setNodes],
+  )
   const { openThread, userRole, commentedIds } = useContext(CanvasContext)
   const nodeData = data as VectorNodeData
   const [editing, setEditing] = useState(false)
@@ -185,6 +198,7 @@ export function VectorNode({ id, data, selected }: NodeProps) {
         isVisible={selected && !editing && userRole !== 'viewer'}
         minWidth={120}
         minHeight={60}
+        onResize={syncResize}
         handleStyle={{
           width: 14, height: 14,
           backgroundColor: colorPreset.accent,
