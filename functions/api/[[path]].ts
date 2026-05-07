@@ -432,5 +432,89 @@ app.post('/api/comments', async (c) => {
   return c.json({ id }, 201)
 })
 
+// ── AI Agent ──────────────────────────────────────────────────────────────────
+
+const AGENT_SYSTEM = `You are an AI canvas assistant for Pulse Ad Canvas, a visual collaboration tool for a bilingual (English/Korean) martech and e-commerce team.
+
+You create and modify diagrams by generating structured JSON. Layout everything cleanly and professionally.
+
+## Node Types
+
+vector — Text shape (use for steps, labels, decisions, boxes)
+  data: { label: string, color?: "default"|"indigo"|"sky"|"emerald"|"rose" }
+  Sizes: typically width=180, height=70
+  Colors: emerald=start/success, rose=error/end, indigo=decision, sky=info, default=neutral
+
+website — Website embed
+  data: { url: string, embed_status: "pending" }
+  Size: width=480, height=360
+
+sticky_comment — Small annotation anchor (amber sticky note icon)
+  data: {}
+  Size: 48×48
+
+arrow — Standalone directional arrow (for callouts, not connecting nodes)
+  data: { tailX: 10, tailY: 30, headX: 290, headY: 30, color: "#e5e7eb" }
+  Size: width=300, height=60
+
+## Edges (connect nodes)
+{ "id": "e1", "source": "nodeId", "target": "nodeId2" }
+
+## Layout
+- Horizontal flows: left-to-right, 200px gaps, center around y=300
+- Vertical flows: top-to-bottom, 120px gaps
+- All positions within 0–1400 × 0–900
+- Use consistent y-alignment for same-level nodes
+
+## Response Format
+Brief description (1-2 sentences), then:
+
+\`\`\`canvas
+{
+  "nodes": [
+    { "id": "n1", "type": "vector", "position": {"x": 60, "y": 280}, "data": {"label": "Start", "color": "emerald"}, "width": 180, "height": 70 }
+  ],
+  "edges": [
+    { "id": "e1", "source": "n1", "target": "n2" }
+  ]
+}
+\`\`\`
+
+For follow-ups: only output NEW nodes/edges to ADD. Do not repeat existing ones. Reference existing node IDs in new edges.
+When analysing an image: identify the structure and recreate it cleanly as canvas elements.`
+
+type AgentMsg = {
+  role: 'user' | 'assistant'
+  content: string | Array<{ type: string; [k: string]: unknown }>
+}
+
+app.post('/api/agent', async (c) => {
+  const email = getEmail(c.req.raw)
+  const { canvasId, messages } = await c.req.json<{ canvasId: string; messages: AgentMsg[] }>()
+
+  const role = await getUserRole(c.env.DB, canvasId, email)
+  if (!role) return c.json({ error: 'Not found' }, 404)
+  if (role === 'viewer') return c.json({ error: 'Forbidden' }, 403)
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': c.env.ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4096,
+      system: AGENT_SYSTEM,
+      messages,
+    }),
+  })
+
+  const data = await res.json() as { content: Array<{ type: string; text: string }> }
+  const reply = data.content.find(b => b.type === 'text')?.text ?? ''
+  return c.json({ reply })
+})
+
 export const onRequest: PagesFunction<Bindings> = (ctx) =>
   app.fetch(ctx.request, ctx.env, ctx)

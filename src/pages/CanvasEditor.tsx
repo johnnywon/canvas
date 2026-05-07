@@ -30,6 +30,7 @@ import { LabeledEdge } from '../edges/LabeledEdge'
 import { ArrowEdge } from '../edges/ArrowEdge'
 import { CommentPanel } from '../components/CommentPanel'
 import { ShareModal } from '../components/ShareModal'
+import { AgentBar } from '../components/AgentBar'
 import { SortGridIcon, LockIcon, UnlockIcon, VectorToolIcon, ImageToolIcon, WebsiteToolIcon, ArrowToolIcon, StickyToolIcon } from '../components/icons'
 
 const nodeTypes = {
@@ -154,6 +155,13 @@ function CanvasEditorInner() {
 
   const isLoadedRef = useRef(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  // ── History (undo/redo) ────────────────────────────────────────────────────
+  const historyRef = useRef<Array<{ nodes: Node[]; edges: Edge[] }>>([])
+  const historyIndexRef = useRef(0)
+  const isTimeTravelingRef = useRef(false)
+  const suppressHistoryUntilRef = useRef(0)
+  const historyTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const isViewer = userRole === 'viewer'
 
@@ -377,6 +385,96 @@ function CanvasEditorInner() {
     [openThread],
   )
 
+  // ── History push (debounced) ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!isLoadedRef.current || isTimeTravelingRef.current) return
+    clearTimeout(historyTimerRef.current)
+    historyTimerRef.current = setTimeout(() => {
+      if (Date.now() < suppressHistoryUntilRef.current) return
+      const snapshot = { nodes: [...nodes], edges: [...edges] }
+      historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1)
+      historyRef.current.push(snapshot)
+      if (historyRef.current.length > 50) historyRef.current.shift()
+      historyIndexRef.current = historyRef.current.length - 1
+    }, 600)
+  }, [nodes, edges])
+
+  const undo = useCallback(() => {
+    if (historyIndexRef.current <= 0) return
+    historyIndexRef.current--
+    isTimeTravelingRef.current = true
+    suppressHistoryUntilRef.current = Date.now() + 900
+    const snap = historyRef.current[historyIndexRef.current]
+    setNodes([...snap.nodes])
+    setEdges([...snap.edges])
+    requestAnimationFrame(() => { isTimeTravelingRef.current = false })
+  }, [setNodes, setEdges])
+
+  const redo = useCallback(() => {
+    if (historyIndexRef.current >= historyRef.current.length - 1) return
+    historyIndexRef.current++
+    isTimeTravelingRef.current = true
+    suppressHistoryUntilRef.current = Date.now() + 900
+    const snap = historyRef.current[historyIndexRef.current]
+    setNodes([...snap.nodes])
+    setEdges([...snap.edges])
+    requestAnimationFrame(() => { isTimeTravelingRef.current = false })
+  }, [setNodes, setEdges])
+
+  // ── Keyboard shortcuts ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      const inInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
+
+      // Undo / Redo (skip when in a text field to let native undo work)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey && !inInput) {
+        e.preventDefault(); undo(); return
+      }
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey)) && !inInput) {
+        e.preventDefault(); redo(); return
+      }
+
+      if (inInput || isViewer) return
+
+      // Node add shortcuts
+      if (e.key === 'v' || e.key === 'V') { e.preventDefault(); addNode('vector') }
+      if (e.key === 'i' || e.key === 'I') { e.preventDefault(); addNode('image') }
+      if (e.key === 'w' || e.key === 'W') { e.preventDefault(); addNode('website') }
+      if (e.key === 'a' || e.key === 'A') { e.preventDefault(); addArrow() }
+      if (e.key === 's' || e.key === 'S') {
+        e.preventDefault()
+        const nodeId = crypto.randomUUID()
+        setNodes(nds => [...nds, { id: nodeId, type: 'sticky_comment', position: { x: 200 + Math.random() * 400, y: 150 + Math.random() * 250 }, data: {} }])
+        openThread('node', nodeId, 'sticky_comment')
+      }
+      // Escape: close panels
+      if (e.key === 'Escape') {
+        closeThread()
+        setShareOpen(false)
+        setEditingName(false)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [undo, redo, addNode, addArrow, setNodes, openThread, closeThread, isViewer])
+
+  // ── Agent: add content without replacing existing nodes ────────────────────
+  const addAgentContent = useCallback((newNodes: Node[], newEdges: Edge[]) => {
+    if (!newNodes.length && !newEdges.length) return
+    setNodes(existing => {
+      if (!existing.length || !newNodes.length) return [...existing, ...newNodes]
+      // Shift existing nodes right if they'd overlap
+      const newRight = Math.max(...newNodes.map(n => n.position.x + ((n.width as number | undefined) ?? 200)))
+      const newLeft = Math.min(...newNodes.map(n => n.position.x))
+      const overlap = existing.some(n => n.position.x < newRight + 60 && n.position.x > newLeft - 60)
+      if (!overlap) return [...existing, ...newNodes]
+      const shifted = existing.map(n => ({ ...n, position: { x: n.position.x + newRight + 100, y: n.position.y } }))
+      return [...shifted, ...newNodes]
+    })
+    setEdges(existing => [...existing, ...newEdges])
+  }, [setNodes, setEdges])
+
   // ── Status display ─────────────────────────────────────────────────────────
   const statusLabel: Record<SaveStatus, string> = {
     idle: '', pending: 'Unsaved changes', saving: 'Saving…',
@@ -493,10 +591,10 @@ function CanvasEditorInner() {
             <>
               <div style={{ width: 1, height: 22, background: '#1f2937', margin: '0 4px' }} />
               <div style={{ display: 'flex', gap: 3 }}>
-                <IconToolButton onClick={() => addNode('vector')} icon={<VectorToolIcon />} labelEn="Vector" labelKo="벡터" color="#6366f1" />
-                <IconToolButton onClick={() => addNode('image')} icon={<ImageToolIcon />} labelEn="Image" labelKo="이미지" color="#0ea5e9" />
-                <IconToolButton onClick={() => addNode('website')} icon={<WebsiteToolIcon />} labelEn="Website" labelKo="웹사이트" color="#10b981" />
-                <IconToolButton onClick={addArrow} icon={<ArrowToolIcon />} labelEn="Arrow" labelKo="화살표" color="#94a3b8" />
+                <IconToolButton onClick={() => addNode('vector')} icon={<VectorToolIcon />} labelEn="Vector" labelKo="벡터" shortcut="V" color="#6366f1" />
+                <IconToolButton onClick={() => addNode('image')} icon={<ImageToolIcon />} labelEn="Image" labelKo="이미지" shortcut="I" color="#0ea5e9" />
+                <IconToolButton onClick={() => addNode('website')} icon={<WebsiteToolIcon />} labelEn="Website" labelKo="웹사이트" shortcut="W" color="#10b981" />
+                <IconToolButton onClick={addArrow} icon={<ArrowToolIcon />} labelEn="Arrow" labelKo="화살표" shortcut="A" color="#94a3b8" />
                 <IconToolButton
                   onClick={() => {
                     const nodeId = crypto.randomUUID()
@@ -506,6 +604,7 @@ function CanvasEditorInner() {
                   icon={<StickyToolIcon />}
                   labelEn="Sticky Note"
                   labelKo="스티커"
+                  shortcut="S"
                   color="#fbbf24"
                 />
               </div>
@@ -548,6 +647,16 @@ function CanvasEditorInner() {
               showInteractive={false}
               style={{ background: '#111827', border: '1px solid #1f2937', borderRadius: 10 }}
             >
+              <ControlButton onClick={undo} title="Undo (⌘Z)">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 4h7a3 3 0 0 1 0 6H5M1 4l3-3M1 4l3 3"/>
+                </svg>
+              </ControlButton>
+              <ControlButton onClick={redo} title="Redo (⌘⇧Z)">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 4H4a3 3 0 0 0 0 6h3M11 4L8 1M11 4L8 7"/>
+                </svg>
+              </ControlButton>
               {!isViewer && (
                 <ControlButton onClick={sortNodes} title="Sort nodes into a grid">
                   <SortGridIcon size={12} />
@@ -572,6 +681,11 @@ function CanvasEditorInner() {
           </ReactFlow>
 
           <CommentPanel />
+
+          {/* AI Agent bar — floating, bottom center */}
+          {!isViewer && canvasId && (
+            <AgentBar canvasId={canvasId} onAddContent={addAgentContent} />
+          )}
         </div>
       </div>
 
@@ -589,12 +703,13 @@ function CanvasEditorInner() {
 }
 
 function IconToolButton({
-  onClick, icon, labelEn, labelKo, color,
+  onClick, icon, labelEn, labelKo, shortcut, color,
 }: {
   onClick: () => void
   icon: React.ReactNode
   labelEn: string
   labelKo: string
+  shortcut?: string
   color: string
 }) {
   const [tip, setTip] = useState(false)
@@ -628,6 +743,11 @@ function IconToolButton({
         }}>
           <div style={{ fontSize: 11, color: '#f9fafb', fontWeight: 600 }}>{labelEn}</div>
           <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>{labelKo}</div>
+          {shortcut && (
+            <div style={{ marginTop: 3, display: 'flex', justifyContent: 'center' }}>
+              <kbd style={{ fontSize: 9, color: '#4b5563', background: '#1f2937', border: '1px solid #374151', borderRadius: 4, padding: '1px 5px', fontFamily: 'system-ui, sans-serif' }}>{shortcut}</kbd>
+            </div>
+          )}
         </div>
       )}
     </div>
