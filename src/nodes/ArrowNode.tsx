@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { NodeResizer, useReactFlow, type NodeProps } from '@xyflow/react'
+import { NodeDeleteButton } from './VectorNode'
 
 export type ArrowNodeData = {
   tailX: number
@@ -12,7 +13,7 @@ export type ArrowNodeData = {
 const COLORS = ['#e5e7eb', '#60a5fa', '#f87171', '#34d399', '#fbbf24', '#c084fc']
 
 export function ArrowNode({ id, data, selected }: NodeProps) {
-  const { updateNodeData, getViewport } = useReactFlow()
+  const { updateNodeData, getViewport, deleteElements } = useReactFlow()
   const d = data as ArrowNodeData
 
   const tailX = d.tailX ?? 10
@@ -120,6 +121,13 @@ export function ArrowNode({ id, data, selected }: NodeProps) {
         onPointerMove={onHandlePointerMove}
         onPointerUp={onHandlePointerUp}
       />
+
+      {/* Delete button */}
+      {selected && (
+        <div style={{ position: 'absolute', top: midY - 9, left: midX - 40, pointerEvents: 'all' }}>
+          <NodeDeleteButton id={id} deleteElements={deleteElements} />
+        </div>
+      )}
 
       {/* Color picker (shows when selected) */}
       {selected && (

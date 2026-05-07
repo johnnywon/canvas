@@ -1,7 +1,36 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react'
-import { Handle, NodeResizer, Position, useReactFlow, type NodeProps } from '@xyflow/react'
+import { Handle, NodeResizer, Position, useReactFlow, type NodeProps, type ReactFlowInstance } from '@xyflow/react'
 import { CanvasContext } from '../contexts/CanvasContext'
 import { CommentIcon, PencilIcon } from '../components/icons'
+
+// Shared delete button — used by all node types
+export function NodeDeleteButton({ id, deleteElements }: {
+  id: string
+  deleteElements: ReactFlowInstance['deleteElements']
+}) {
+  return (
+    <button
+      className="nodrag nopan"
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => { e.stopPropagation(); deleteElements({ nodes: [{ id }] }) }}
+      title="Delete"
+      style={{
+        position: 'absolute', top: 5, left: 5, zIndex: 5,
+        width: 18, height: 18, borderRadius: '50%',
+        background: 'rgba(31,41,55,0.92)',
+        border: '1px solid #374151',
+        color: '#6b7280', cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 9, lineHeight: 1, padding: 0,
+        transition: 'background 0.12s, color 0.12s',
+      }}
+      onMouseEnter={(e) => { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#7f1d1d'; b.style.color = '#fca5a5' }}
+      onMouseLeave={(e) => { const b = e.currentTarget as HTMLButtonElement; b.style.background = 'rgba(31,41,55,0.92)'; b.style.color = '#6b7280' }}
+    >
+      ✕
+    </button>
+  )
+}
 
 export type VectorNodeData = {
   label?: string
@@ -17,7 +46,7 @@ const VECTOR_COLORS = [
 ]
 
 export function VectorNode({ id, data, selected }: NodeProps) {
-  const { updateNodeData } = useReactFlow()
+  const { updateNodeData, deleteElements } = useReactFlow()
   const { openThread, userRole, commentedIds } = useContext(CanvasContext)
   const nodeData = data as VectorNodeData
   const [editing, setEditing] = useState(false)
@@ -95,6 +124,11 @@ export function VectorNode({ id, data, selected }: NodeProps) {
 
       <Handle type="target" position={Position.Left} />
       <Handle type="target" position={Position.Top} id="top-target" />
+
+      {/* Delete button */}
+      {selected && userRole !== 'viewer' && (
+        <NodeDeleteButton id={id} deleteElements={deleteElements} />
+      )}
 
       {/* Edit button */}
       {!editing && userRole !== 'viewer' && (

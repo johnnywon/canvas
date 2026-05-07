@@ -2,6 +2,7 @@ import { useContext, useEffect, useRef, useState } from 'react'
 import { Handle, NodeResizer, Position, useReactFlow, type NodeProps } from '@xyflow/react'
 import { CanvasContext } from '../contexts/CanvasContext'
 import { CommentIcon } from '../components/icons'
+import { NodeDeleteButton } from './VectorNode'
 
 export type WebsiteNodeData = {
   url?: string
@@ -10,7 +11,7 @@ export type WebsiteNodeData = {
 }
 
 export function WebsiteNode({ id, data, selected }: NodeProps) {
-  const { updateNodeData } = useReactFlow()
+  const { updateNodeData, deleteElements } = useReactFlow()
   const { openThread, commentedIds } = useContext(CanvasContext)
   const d = data as WebsiteNodeData
   const hasComments = commentedIds.has(id)
@@ -98,6 +99,8 @@ export function WebsiteNode({ id, data, selected }: NodeProps) {
 
       <Handle type="target" position={Position.Left} />
       <Handle type="target" position={Position.Top} id="top-target" />
+
+      {selected && userRole !== 'viewer' && <NodeDeleteButton id={id} deleteElements={deleteElements} />}
 
       {/* Address bar */}
       <div style={{

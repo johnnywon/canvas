@@ -2,13 +2,14 @@ import { useCallback, useContext, useRef, useState } from 'react'
 import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react'
 import { CanvasContext } from '../contexts/CanvasContext'
 import { CommentIcon } from '../components/icons'
+import { NodeDeleteButton } from './VectorNode'
 
 export type ImageNodeData = {
   imageUrl?: string
 }
 
 export function ImageNode({ id, data, selected }: NodeProps) {
-  const { updateNodeData } = useReactFlow()
+  const { updateNodeData, deleteElements } = useReactFlow()
   const { openThread, commentedIds } = useContext(CanvasContext)
   const nodeData = data as ImageNodeData
   const hasComments = commentedIds.has(id)
@@ -83,6 +84,8 @@ export function ImageNode({ id, data, selected }: NodeProps) {
     >
       <Handle type="target" position={Position.Left} />
       <Handle type="target" position={Position.Top} id="top-target" />
+
+      {selected && userRole !== 'viewer' && <NodeDeleteButton id={id} deleteElements={deleteElements} />}
 
       {nodeData.imageUrl ? (
         <>
