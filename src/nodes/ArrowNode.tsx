@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import { NodeResizer, useReactFlow, type NodeProps } from '@xyflow/react'
 
 export type ArrowNodeData = {
@@ -21,7 +21,6 @@ export function ArrowNode({ id, data, selected }: NodeProps) {
   const headY = d.headY ?? 30
   const color = d.color ?? '#e5e7eb'
 
-  const [showColors, setShowColors] = useState(false)
   const dragRef = useRef<{ which: 'tail' | 'head'; lastX: number; lastY: number } | null>(null)
 
   const midX = (tailX + headX) / 2
@@ -140,10 +139,8 @@ export function ArrowNode({ id, data, selected }: NodeProps) {
             zIndex: 10,
           }}
           className="nodrag nopan"
-          onMouseEnter={() => setShowColors(true)}
-          onMouseLeave={() => setShowColors(false)}
         >
-          {showColors || true ? COLORS.map((c) => (
+          {COLORS.map((c) => (
             <button
               key={c}
               onClick={() => updateNodeData(id, { color: c })}
@@ -154,7 +151,7 @@ export function ArrowNode({ id, data, selected }: NodeProps) {
                 cursor: 'pointer', flexShrink: 0,
               }}
             />
-          )) : null}
+          ))}
         </div>
       )}
     </div>

@@ -8,3 +8,152 @@ body,
   margin: 0;
   padding: 0;
 }
+
+/* ── Animations ────────────────────────────────────────────────────────────── */
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ── Skeleton shimmer ──────────────────────────────────────────────────────── */
+
+.skeleton {
+  background: linear-gradient(90deg, #1f2937 25%, #2d3748 50%, #1f2937 75%);
+  background-size: 600px 100%;
+  animation: shimmer 1.5s infinite linear;
+  border-radius: 6px;
+}
+
+/* ── Scrollbars ────────────────────────────────────────────────────────────── */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #374151 transparent;
+}
+*::-webkit-scrollbar        { width: 4px; height: 4px; }
+*::-webkit-scrollbar-thumb  { background: #374151; border-radius: 2px; }
+*::-webkit-scrollbar-track  { background: transparent; }
+
+/* ── React Flow: handles ───────────────────────────────────────────────────── */
+
+.react-flow__handle {
+  width: 10px !important;
+  height: 10px !important;
+  border: 2px solid #374151 !important;
+  background: #0d1117 !important;
+  border-radius: 50% !important;
+  transition: background 0.12s, border-color 0.12s, transform 0.12s !important;
+}
+
+.react-flow__handle:hover {
+  background: #6366f1 !important;
+  border-color: #818cf8 !important;
+  transform: scale(1.5) !important;
+}
+
+.react-flow__handle.connectionindicator,
+.react-flow__handle.valid {
+  background: #6366f1 !important;
+  border-color: #a5b4fc !important;
+}
+
+/* ── React Flow: edges ─────────────────────────────────────────────────────── */
+
+.react-flow__edge-path {
+  stroke: #374151;
+  stroke-width: 2;
+  transition: stroke 0.12s;
+}
+
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: #6366f1;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #6366f1;
+}
+
+/* Wider invisible click target on edges */
+.react-flow__edge-interaction {
+  stroke-width: 20 !important;
+}
+
+/* ── React Flow: connection line ───────────────────────────────────────────── */
+
+.react-flow__connection-path {
+  stroke: #6366f1 !important;
+  stroke-width: 2 !important;
+  stroke-dasharray: 5 3 !important;
+}
+
+/* ── React Flow: controls ──────────────────────────────────────────────────── */
+
+.react-flow__controls {
+  border-radius: 10px !important;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5) !important;
+  gap: 0 !important;
+}
+
+.react-flow__controls-button {
+  background: #111827 !important;
+  border: none !important;
+  border-bottom: 1px solid #1f2937 !important;
+  color: #9ca3af !important;
+  width: 28px !important;
+  height: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background 0.12s, color 0.12s !important;
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none !important;
+}
+
+.react-flow__controls-button:hover {
+  background: #1f2937 !important;
+  color: #f9fafb !important;
+}
+
+.react-flow__controls-button svg {
+  fill: currentColor !important;
+  max-width: 12px !important;
+  max-height: 12px !important;
+}
+
+/* ── React Flow: minimap ───────────────────────────────────────────────────── */
+
+.react-flow__minimap {
+  border-radius: 10px !important;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5) !important;
+}
+
+/* ── React Flow: attribution ───────────────────────────────────────────────── */
+
+.react-flow__attribution {
+  display: none !important;
+}
+
+/* ── React Flow: pane + bg ─────────────────────────────────────────────────── */
+
+.react-flow__pane {
+  cursor: default !important;
+}

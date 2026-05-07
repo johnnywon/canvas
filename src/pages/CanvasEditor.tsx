@@ -389,7 +389,7 @@ function CanvasEditorInner() {
 
   return (
     <CanvasContext.Provider value={ctxValue}>
-      <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', background: '#030712' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', background: '#030712', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
 
         {/* Header */}
         <div style={{ height: 48, background: '#030712', borderBottom: '1px solid #1f2937', display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px', flexShrink: 0, zIndex: 10 }}>
@@ -439,11 +439,19 @@ function CanvasEditorInner() {
             </span>
           )}
 
-          {/* Save status */}
+          {/* Save status dot + label */}
           {!isViewer && saveStatus !== 'idle' && (
-            <span style={{ fontSize: 11, color: statusColor[saveStatus], fontFamily: 'system-ui, sans-serif' }}>
-              {statusLabel[saveStatus]}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <div style={{
+                width: 6, height: 6, borderRadius: '50%',
+                background: statusColor[saveStatus],
+                animation: saveStatus === 'pending' || saveStatus === 'saving' ? 'pulse 1.2s ease-in-out infinite' : 'none',
+                flexShrink: 0,
+              }} />
+              <span style={{ fontSize: 11, color: statusColor[saveStatus], fontFamily: 'system-ui, sans-serif' }}>
+                {statusLabel[saveStatus]}
+              </span>
+            </div>
           )}
 
           {/* EN / KO language toggle */}

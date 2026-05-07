@@ -17,7 +17,7 @@ function formatTime(iso: string) {
 }
 
 export function CommentPanel() {
-  const { canvasId, preferredLang, activeThread, closeThread, addCommentedId, deleteNode } = useContext(CanvasContext)
+  const { canvasId, preferredLang, activeThread, closeThread, addCommentedId, deleteNode, currentUserEmail } = useContext(CanvasContext)
   const [comments, setComments] = useState<Comment[]>([])
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -151,7 +151,7 @@ export function CommentPanel() {
           </div>
         ) : (
           comments.map((c) => (
-            <CommentBubble key={c.id} comment={c} preferredLang={preferredLang} />
+            <CommentBubble key={c.id} comment={c} preferredLang={preferredLang} isOwn={c.author_email === currentUserEmail} />
           ))
         )}
       </div>
@@ -257,9 +257,11 @@ export function CommentPanel() {
 function CommentBubble({
   comment,
   preferredLang,
+  isOwn,
 }: {
   comment: Comment
   preferredLang: 'en' | 'ko'
+  isOwn: boolean
 }) {
   const [showOriginal, setShowOriginal] = useState(false)
 
@@ -269,49 +271,77 @@ function CommentBubble({
       ? (comment.en_text ?? comment.original_text)
       : (comment.ko_text ?? comment.original_text)
 
-  // Only show toggle if a translation exists AND this comment wasn't originally in preferred lang
   const canToggle =
     !showOriginal &&
     comment.original_lang !== preferredLang &&
     (comment.en_text !== null || comment.ko_text !== null)
 
-  const authorHandle = comment.author_email.split('@')[0]
+  const initials = comment.author_email.slice(0, 2).toUpperCase()
+  const hue = comment.author_email.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360
+  const handle = comment.author_email.split('@')[0]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: '#818cf8' }}>{authorHandle}</span>
-        <span style={{ fontSize: 10, color: '#374151' }}>{formatTime(comment.created_at)}</span>
+    <div style={{
+      display: 'flex',
+      flexDirection: isOwn ? 'row-reverse' : 'row',
+      gap: 8,
+      alignItems: 'flex-end',
+      animation: 'fadeIn 0.15s ease',
+    }}>
+      {/* Avatar */}
+      <div style={{
+        width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+        background: `hsl(${hue}, 48%, 32%)`,
+        border: `1.5px solid hsl(${hue}, 48%, 45%)`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 8, fontWeight: 700, color: 'white', letterSpacing: 0.3,
+      }}>
+        {initials}
       </div>
-      <p
-        style={{
-          fontSize: 12,
-          color: '#e5e7eb',
-          lineHeight: 1.55,
-          margin: 0,
-          wordBreak: 'break-word',
-        }}
-      >
-        {primaryText}
-      </p>
-      {(canToggle || showOriginal) && (
-        <button
-          onClick={() => setShowOriginal(!showOriginal)}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#4b5563',
-            fontSize: 10,
-            cursor: 'pointer',
-            padding: 0,
-            textAlign: 'left',
-            textDecoration: 'underline',
-            fontFamily: 'inherit',
-          }}
-        >
-          {showOriginal ? `Show ${preferredLang === 'en' ? 'English' : 'Korean'}` : 'Show original'}
-        </button>
-      )}
+
+      <div style={{
+        display: 'flex', flexDirection: 'column', gap: 3,
+        maxWidth: '74%',
+        alignItems: isOwn ? 'flex-end' : 'flex-start',
+      }}>
+        {/* Author + time */}
+        <div style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>
+          {!isOwn && (
+            <span style={{ fontSize: 10, fontWeight: 600, color: `hsl(${hue}, 60%, 65%)` }}>
+              {handle}
+            </span>
+          )}
+          <span style={{ fontSize: 9, color: '#374151' }}>{formatTime(comment.created_at)}</span>
+        </div>
+
+        {/* Bubble */}
+        <div style={{
+          background: isOwn ? '#312e81' : '#1f2937',
+          border: `1px solid ${isOwn ? '#4338ca' : '#374151'}`,
+          borderRadius: isOwn ? '12px 4px 12px 12px' : '4px 12px 12px 12px',
+          padding: '8px 11px',
+        }}>
+          <p style={{
+            fontSize: 12, color: '#e5e7eb', lineHeight: 1.55,
+            margin: 0, wordBreak: 'break-word',
+          }}>
+            {primaryText}
+          </p>
+        </div>
+
+        {(canToggle || showOriginal) && (
+          <button
+            onClick={() => setShowOriginal(!showOriginal)}
+            style={{
+              background: 'none', border: 'none', color: '#4b5563',
+              fontSize: 9, cursor: 'pointer', padding: 0,
+              textDecoration: 'underline', fontFamily: 'inherit',
+            }}
+          >
+            {showOriginal ? `Show ${preferredLang === 'en' ? 'English' : 'Korean'}` : 'Show original'}
+          </button>
+        )}
+      </div>
     </div>
   )
 }

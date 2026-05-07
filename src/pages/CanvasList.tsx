@@ -132,8 +132,18 @@ export function CanvasList() {
       {/* Body */}
       <main className="px-6 py-8 max-w-5xl mx-auto">
         {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <div className="flex flex-col gap-10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+                  <div className="m-3 h-24 rounded-lg skeleton" />
+                  <div className="p-4 pt-1 flex flex-col gap-2">
+                    <div className="h-4 rounded skeleton" style={{ width: `${60 + i * 12}%` }} />
+                    <div className="h-3 rounded skeleton" style={{ width: '40%' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : canvases.length === 0 ? (
           <EmptyState onCreate={createCanvas} creating={creating} />
@@ -307,9 +317,19 @@ function CanvasCard({
 
   return (
     <div
-      className="group bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl overflow-hidden transition-colors"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { setHovered(false); setAddingTag(false) }}
+      className="group bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl overflow-hidden"
+      style={{ transition: 'border-color 0.15s, box-shadow 0.15s, transform 0.15s' }}
+      onMouseEnter={(e) => {
+        setHovered(true)
+        ;(e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'
+        ;(e.currentTarget as HTMLDivElement).style.boxShadow = '0 8px 24px rgba(0,0,0,0.4)'
+      }}
+      onMouseLeave={(e) => {
+        setHovered(false)
+        setAddingTag(false)
+        ;(e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'
+        ;(e.currentTarget as HTMLDivElement).style.boxShadow = 'none'
+      }}
     >
       {/* Thumbnail */}
       <button onClick={onOpen} className="block w-full p-3 pb-0 cursor-pointer">
