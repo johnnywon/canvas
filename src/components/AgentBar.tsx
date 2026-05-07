@@ -274,10 +274,10 @@ export function AgentBar({ canvasId, onAddContent }: Props) {
         style={{
           width: visible ? 480 : 44,
           height: 44,
-          background: 'rgba(7, 10, 18, 0.86)',
+          background: visible ? 'rgba(7,10,18,0.86)' : 'rgba(13,11,28,0.75)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          border: `1px solid ${visible ? 'rgba(255,255,255,0.08)' : 'rgba(129,140,248,0.3)'}`,
           borderRadius: 22,
           display: 'flex',
           alignItems: 'center',
@@ -286,7 +286,7 @@ export function AgentBar({ canvasId, onAddContent }: Props) {
           justifyContent: visible ? 'flex-start' : 'center',
           boxShadow: visible
             ? '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.12)'
-            : '0 4px 12px rgba(0,0,0,0.3)',
+            : '0 0 20px rgba(129,140,248,0.5), 0 0 8px rgba(129,140,248,0.25), 0 2px 8px rgba(0,0,0,0.4)',
           transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1), padding 0.25s ease, box-shadow 0.25s ease',
           overflow: 'hidden',
           pointerEvents: 'all',
@@ -297,7 +297,13 @@ export function AgentBar({ canvasId, onAddContent }: Props) {
         {/* Sparkle icon */}
         <svg
           width="16" height="16" viewBox="0 0 16 16" fill="none"
-          style={{ flexShrink: 0, opacity: visible ? 1 : 0.55, transition: 'opacity 0.2s' }}
+          style={{
+            flexShrink: 0,
+            opacity: visible ? 1 : 0.9,
+            filter: visible ? 'none' : 'drop-shadow(0 0 5px rgba(129,140,248,0.9))',
+            transition: 'opacity 0.2s, filter 0.2s',
+            animation: visible ? 'none' : 'pulse 2.4s ease-in-out infinite',
+          }}
         >
           <path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13l-1.5-4.5L2 7l4.5-1.5L8 1z" fill="#818cf8"/>
         </svg>

@@ -745,8 +745,7 @@ function IconToolButton({
       </button>
       {tip && (
         <div style={{
-          position: 'absolute', top: 'calc(100% + 6px)', left: '50%',
-          transform: 'translateX(-50%)',
+          position: 'absolute', top: 'calc(100% + 6px)', right: 0,
           background: '#0d1117', border: '1px solid #374151',
           borderRadius: 8, padding: '5px 10px', zIndex: 999,
           whiteSpace: 'nowrap', pointerEvents: 'none',
