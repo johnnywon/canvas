@@ -150,6 +150,7 @@ function CanvasEditorInner() {
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
   const [isInteractive, setIsInteractive] = useState(true)
+  const [canvasDragOver, setCanvasDragOver] = useState(false)
   const [preferredLang, setPreferredLangState] = useState<'en' | 'ko'>(
     () => (localStorage.getItem('preferredLang') as 'en' | 'ko') ?? 'en'
   )
@@ -385,6 +386,53 @@ function CanvasEditorInner() {
     },
     [openThread],
   )
+
+  // ── Canvas-level image drop → creates ImageNode ───────────────────────────
+  const handleCanvasDragOver = useCallback((e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('Files')) return
+    e.preventDefault()
+    e.stopPropagation()
+    setCanvasDragOver(true)
+  }, [])
+
+  const handleCanvasDragLeave = useCallback((e: React.DragEvent) => {
+    // Only clear when leaving the entire canvas area
+    if ((e.currentTarget as HTMLElement).contains(e.relatedTarget as HTMLElement)) return
+    setCanvasDragOver(false)
+  }, [])
+
+  const handleCanvasDrop = useCallback(async (e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('Files')) return
+    e.preventDefault()
+    e.stopPropagation()
+    setCanvasDragOver(false)
+    if (isViewer) return
+
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))
+    if (!files.length) return
+
+    let dropPos = screenToFlowPosition({ x: e.clientX, y: e.clientY })
+
+    for (const file of files) {
+      const nodeId = crypto.randomUUID()
+      const pos = { ...dropPos }
+
+      // Place node immediately so the user sees it appear
+      setNodes(nds => [...nds, { id: nodeId, type: 'image', position: pos, data: {} }])
+
+      const formData = new FormData()
+      formData.append('file', file)
+      fetch('/api/upload', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then((json: unknown) => {
+          setNodes(nds => nds.map(n =>
+            n.id === nodeId ? { ...n, data: { imageUrl: (json as { url: string }).url } } : n
+          ))
+        })
+
+      dropPos = { x: dropPos.x + 240, y: dropPos.y }
+    }
+  }, [isViewer, screenToFlowPosition, setNodes])
 
   // ── History push (debounced) ───────────────────────────────────────────────
   useEffect(() => {
@@ -645,6 +693,9 @@ function CanvasEditorInner() {
         {/* Canvas + panel */}
         <div
           style={{ flex: 1, position: 'relative' }}
+          onDragOver={handleCanvasDragOver}
+          onDragLeave={handleCanvasDragLeave}
+          onDrop={handleCanvasDrop}
           onDoubleClick={(e) => {
             const t = e.target as HTMLElement
             if (t.closest('.react-flow__node') || t.closest('.react-flow__edge')) return
@@ -716,6 +767,30 @@ function CanvasEditorInner() {
           </ReactFlow>
 
           <CommentPanel />
+
+          {/* Drop overlay */}
+          {canvasDragOver && !isViewer && (
+            <div style={{
+              position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 25,
+              border: '2px dashed #6366f1',
+              background: 'rgba(99,102,241,0.04)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <div style={{
+                background: 'rgba(7,10,18,0.88)',
+                backdropFilter: 'blur(16px)',
+                border: '1px solid rgba(99,102,241,0.4)',
+                borderRadius: 14,
+                padding: '14px 24px',
+                color: '#818cf8',
+                fontSize: 14,
+                fontWeight: 600,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+              }}>
+                Drop image to add to canvas
+              </div>
+            </div>
+          )}
 
           {/* AI Agent bar — floating, bottom center */}
           {!isViewer && canvasId && (
