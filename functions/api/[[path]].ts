@@ -461,6 +461,14 @@ LAYOUT:
 - emerald=start, rose=end/error, indigo=decision, sky=info, default=step
 - All positions within 0–1400 × 0–900
 
+MULTI-ROW FLOWS (more than 5 nodes):
+- ALWAYS go left-to-right in EVERY row — never reverse direction
+- Row 1: nodes 1–5, y=200, x: 60, 280, 500, 720, 940
+- Row 2: nodes 6–10, y=420, x: 60, 280, 500, 720, 940  ← same x positions as row 1
+- Row 3: nodes 11–15, y=640, x: 60, 280, 500, 720, 940
+- The edge connecting rows goes from the LAST node of row N (right side) to the FIRST node of row N+1 (left side)
+- NEVER use snake/boustrophedon layout where rows alternate direction
+
 For follow-ups: only new nodes/edges to ADD. Reference existing IDs in new edges.
 For images: identify structure, recreate cleanly.`
 
