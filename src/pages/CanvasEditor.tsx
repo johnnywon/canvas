@@ -157,6 +157,11 @@ function CanvasEditorInner() {
 
   const isLoadedRef = useRef(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  // Refs so unload/navigate handlers always see the latest state
+  const nodesRef = useRef(nodes)
+  const edgesRef = useRef(edges)
+  const canvasIdRef = useRef(canvasId)
+  const isViewerRef = useRef(false)
 
   // ── History (undo/redo) ────────────────────────────────────────────────────
   const historyRef = useRef<Array<{ nodes: Node[]; edges: Edge[] }>>([])
@@ -261,7 +266,7 @@ function CanvasEditorInner() {
       } catch {
         setSaveStatus('error')
       }
-    }, 1000)
+    }, 500)
   }, [nodes, edges, canvasId, isViewer])
 
   // ── Edge connect ───────────────────────────────────────────────────────────
@@ -386,6 +391,46 @@ function CanvasEditorInner() {
     },
     [openThread],
   )
+
+  // Keep refs current so unload/navigate handlers see the latest data
+  useEffect(() => { nodesRef.current = nodes }, [nodes])
+  useEffect(() => { edgesRef.current = edges }, [edges])
+  useEffect(() => { canvasIdRef.current = canvasId }, [canvasId])
+  useEffect(() => { isViewerRef.current = isViewer }, [isViewer])
+
+  // Synchronous save using current ref values — safe to call from unload/navigate
+  const saveNow = useCallback(() => {
+    if (!isLoadedRef.current || !canvasIdRef.current || isViewerRef.current) return
+    clearTimeout(saveTimerRef.current)
+    const payload = JSON.stringify({
+      nodes: nodesRef.current.map((n) => ({
+        id: n.id, type: n.type ?? 'vector',
+        x: n.position.x, y: n.position.y,
+        width: n.measured?.width ?? null, height: n.measured?.height ?? null,
+        data: n.data,
+      })),
+      edges: edgesRef.current.map((e) => ({
+        id: e.id, source: e.source, target: e.target,
+        label: e.type === 'arrow'
+          ? ((e.data as { color?: string } | undefined)?.color ?? null)
+          : (typeof e.label === 'string' ? e.label : null),
+      })),
+    })
+    // keepalive survives tab/window close
+    fetch(`/api/canvases/${canvasIdRef.current}/state`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
+      body: payload,
+    }).catch(() => {})
+  }, [])
+
+  // Save on browser tab/window close or hard navigation
+  useEffect(() => {
+    const handler = () => saveNow()
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [saveNow])
 
   // ── Canvas-level image drop → creates ImageNode ───────────────────────────
   const handleCanvasDragOver = useCallback((e: React.DragEvent) => {
@@ -570,7 +615,7 @@ function CanvasEditorInner() {
         {/* Header */}
         <div style={{ height: 48, background: '#030712', borderBottom: '1px solid #1f2937', display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px', flexShrink: 0, zIndex: 10 }}>
           <button
-            onClick={() => navigate('/home')}
+            onClick={() => { saveNow(); navigate('/home') }}
             style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: 13, padding: '4px 8px', borderRadius: 6 }}
             onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#e5e7eb')}
             onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#6b7280')}
