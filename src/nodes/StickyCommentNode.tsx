@@ -46,7 +46,7 @@ export function StickyCommentNode({ id, selected }: NodeProps) {
 
       {/* Delete button — overflows outside the sticky note */}
       {userRole !== 'viewer' && (
-        <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} />
+        <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} top={-10} left={-10} />
       )}
 
       <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />

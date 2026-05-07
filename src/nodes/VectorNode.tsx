@@ -4,10 +4,12 @@ import { CanvasContext } from '../contexts/CanvasContext'
 import { CommentIcon, PencilIcon } from '../components/icons'
 
 // Shared delete button — hover to reveal, click for inline confirmation
-export function NodeDeleteButton({ id, deleteElements, visible }: {
+export function NodeDeleteButton({ id, deleteElements, visible, top = 5, left = 5 }: {
   id: string
   deleteElements: ReactFlowInstance['deleteElements']
   visible: boolean
+  top?: number
+  left?: number
 }) {
   const [confirming, setConfirming] = useState(false)
   const cancelTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -36,7 +38,7 @@ export function NodeDeleteButton({ id, deleteElements, visible }: {
   return (
     <div
       style={{
-        position: 'absolute', top: 5, left: 5, zIndex: 10,
+        position: 'absolute', top, left, zIndex: 10,
         opacity: shown ? 1 : 0,
         pointerEvents: shown ? 'all' : 'none',
         transition: 'opacity 0.15s ease',
