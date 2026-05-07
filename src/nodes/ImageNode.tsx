@@ -1,4 +1,4 @@
-import { useCallback, useContext, useRef, useState } from 'react'
+import { useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react'
 import { CanvasContext } from '../contexts/CanvasContext'
 import { CommentIcon } from '../components/icons'
@@ -17,6 +17,12 @@ export function ImageNode({ id, data, selected }: NodeProps) {
   const [dragOver, setDragOver] = useState(false)
   const [hovered, setHovered] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const outerRef = useRef<HTMLDivElement>(null)
+
+  // Auto-focus the outer div when selected so onPaste fires
+  useEffect(() => {
+    if (selected && outerRef.current) outerRef.current.focus()
+  }, [selected])
 
   const { userRole } = useContext(CanvasContext)
 
@@ -63,6 +69,7 @@ export function ImageNode({ id, data, selected }: NodeProps) {
 
   return (
     <div
+      ref={outerRef}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onDragOver={handleDragOver}
@@ -97,6 +104,9 @@ export function ImageNode({ id, data, selected }: NodeProps) {
             alt=""
             style={{ display: 'block', maxWidth: '100%', maxHeight: 400 }}
             draggable={false}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
           />
           <button
             className="nodrag nopan"

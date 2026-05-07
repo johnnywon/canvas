@@ -422,6 +422,35 @@ function CanvasEditorInner() {
     requestAnimationFrame(() => { isTimeTravelingRef.current = false })
   }, [setNodes, setEdges])
 
+  // ── Canvas-level paste → selected ImageNode ────────────────────────────────
+  useEffect(() => {
+    const handler = async (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+      const selectedImg = nodes.find(n => n.type === 'image' && n.selected)
+      if (!selectedImg) return
+      const items = e.clipboardData?.items
+      if (!items) return
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile()
+          if (!file) break
+          e.preventDefault()
+          const formData = new FormData()
+          formData.append('file', file)
+          const res = await fetch('/api/upload', { method: 'POST', body: formData })
+          const json = await res.json() as { url: string }
+          setNodes(nds => nds.map(n =>
+            n.id === selectedImg.id ? { ...n, data: { ...n.data, imageUrl: json.url } } : n
+          ))
+          break
+        }
+      }
+    }
+    window.addEventListener('paste', handler)
+    return () => window.removeEventListener('paste', handler)
+  }, [nodes, setNodes])
+
   // ── Keyboard shortcuts ─────────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
