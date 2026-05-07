@@ -461,6 +461,13 @@ LAYOUT:
 - emerald=start, rose=end/error, indigo=decision, sky=info, default=step
 - All positions within 0–1400 × 0–900
 
+REARRANGING EXISTING NODES:
+When asked to rearrange, organise, or reposition an existing diagram, the
+current canvas state is provided at the top of the user message inside
+[CANVAS]. Use the exact node IDs shown there and return them with new
+positions. Do NOT change labels or data unless asked. You may also add new
+nodes/edges if needed.
+
 MULTI-ROW FLOWS (more than 5 nodes):
 - ALWAYS go left-to-right in EVERY row — never reverse direction
 - Row 1: nodes 1–5, y=200, x: 60, 280, 500, 720, 940

@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { MarkerType, type Edge, type Node } from '@xyflow/react'
 
+function buildCanvasContext(nodes: Node[], edges: Edge[]): string {
+  if (!nodes.length) return ''
+  const ns = nodes.slice(0, 60).map(n => {
+    const d = n.data as Record<string, unknown>
+    const label = (d?.label as string) ?? (d?.url as string) ?? n.type
+    return `  {"id":"${n.id}","type":"${n.type}","label":"${label}","x":${Math.round(n.position.x)},"y":${Math.round(n.position.y)},"w":${Math.round((n.measured?.width ?? (n.width as number | undefined) ?? 180))},"h":${Math.round((n.measured?.height ?? (n.height as number | undefined) ?? 70))}}`
+  }).join(',\n')
+  const es = edges.slice(0, 80).map(e => `  {"from":"${e.source}","to":"${e.target}"}`).join(',\n')
+  return `[CANVAS]\nNodes:\n${ns}\nEdges:\n${es}\n[/CANVAS]\n\n`
+}
+
 type AgentMsg = {
   role: 'user' | 'assistant'
   // API format (may include image blocks)
@@ -30,10 +41,12 @@ function replyDisplay(text: string): string {
 
 type Props = {
   canvasId: string
+  currentNodes: Node[]
+  currentEdges: Edge[]
   onAddContent: (nodes: Node[], edges: Edge[]) => void
 }
 
-export function AgentBar({ canvasId, onAddContent }: Props) {
+export function AgentBar({ canvasId, currentNodes, currentEdges, onAddContent }: Props) {
   const [messages, setMessages] = useState<AgentMsg[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -95,18 +108,20 @@ export function AgentBar({ canvasId, onAddContent }: Props) {
     if (!text && !imageAttachment) return
     if (loading) return
 
-    // Build API content
+    // Build API content — always prepend current canvas state so Claude can rearrange
+    const ctx = buildCanvasContext(currentNodes, currentEdges)
+    const userText = text || 'Create a canvas diagram from this image'
     const apiContent: AgentMsg['content'] = imageAttachment
       ? [
           { type: 'image', source: { type: 'base64', media_type: imageAttachment.mimeType, data: imageAttachment.base64 } },
-          { type: 'text', text: text || 'Create a canvas diagram from this image' },
+          { type: 'text', text: ctx + userText },
         ]
-      : text
+      : ctx + userText
 
     const userMsg: AgentMsg = {
       role: 'user',
       content: apiContent,
-      text: text || '📎 Image attached',
+      text: text || '📎 Image attached',    // display text is clean (no context)
       imagePreview: imageAttachment?.preview,
     }
 

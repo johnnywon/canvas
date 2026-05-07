@@ -582,18 +582,36 @@ function CanvasEditorInner() {
     return () => window.removeEventListener('keydown', handler)
   }, [undo, redo, addNode, addArrow, setNodes, openThread, closeThread, isViewer])
 
-  // ── Agent: add content without replacing existing nodes ────────────────────
+  // ── Agent: reposition existing nodes OR add new ones ──────────────────────
   const addAgentContent = useCallback((newNodes: Node[], newEdges: Edge[]) => {
     if (!newNodes.length && !newEdges.length) return
     setNodes(existing => {
-      if (!existing.length || !newNodes.length) return [...existing, ...newNodes]
-      // Shift existing nodes right if they'd overlap
-      const newRight = Math.max(...newNodes.map(n => n.position.x + ((n.width as number | undefined) ?? 200)))
-      const newLeft = Math.min(...newNodes.map(n => n.position.x))
-      const overlap = existing.some(n => n.position.x < newRight + 60 && n.position.x > newLeft - 60)
-      if (!overlap) return [...existing, ...newNodes]
-      const shifted = existing.map(n => ({ ...n, position: { x: n.position.x + newRight + 100, y: n.position.y } }))
-      return [...shifted, ...newNodes]
+      const existingIdSet = new Set(existing.map(n => n.id))
+      const updates = newNodes.filter(n => existingIdSet.has(n.id))   // reposition
+      const additions = newNodes.filter(n => !existingIdSet.has(n.id)) // brand-new
+
+      // Apply position (and optional size) updates to existing nodes
+      let result = existing.map(n => {
+        const u = updates.find(x => x.id === n.id)
+        if (!u) return n
+        return {
+          ...n,
+          position: u.position,
+          ...(u.width ? { width: u.width } : {}),
+          ...(u.height ? { height: u.height } : {}),
+        }
+      })
+
+      // Add genuinely new nodes (shift existing right if they'd overlap)
+      if (additions.length) {
+        const newRight = Math.max(...additions.map(n => n.position.x + ((n.width as number | undefined) ?? 200)))
+        const newLeft = Math.min(...additions.map(n => n.position.x))
+        const overlap = result.some(n => n.position.x < newRight + 60 && n.position.x > newLeft - 60)
+        if (overlap) result = result.map(n => ({ ...n, position: { x: n.position.x + newRight + 100, y: n.position.y } }))
+        result = [...result, ...additions]
+      }
+
+      return result
     })
     setEdges(existing => [...existing, ...newEdges])
   }, [setNodes, setEdges])
@@ -839,7 +857,12 @@ function CanvasEditorInner() {
 
           {/* AI Agent bar — floating, bottom center */}
           {!isViewer && canvasId && (
-            <AgentBar canvasId={canvasId} onAddContent={addAgentContent} />
+            <AgentBar
+              canvasId={canvasId}
+              currentNodes={nodes}
+              currentEdges={edges}
+              onAddContent={addAgentContent}
+            />
           )}
         </div>
       </div>
