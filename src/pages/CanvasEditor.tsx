@@ -713,12 +713,23 @@ function IconToolButton({
   color: string
 }) {
   const [tip, setTip] = useState(false)
+  const tipTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  const showTip = () => {
+    clearTimeout(tipTimer.current)
+    tipTimer.current = window.setTimeout(() => setTip(true), 450)
+  }
+  const hideTip = () => {
+    clearTimeout(tipTimer.current)
+    setTip(false)
+  }
+
   return (
     <div style={{ position: 'relative' }}>
       <button
         onClick={onClick}
-        onMouseEnter={() => setTip(true)}
-        onMouseLeave={() => setTip(false)}
+        onMouseEnter={showTip}
+        onMouseLeave={hideTip}
         style={{
           width: 32, height: 32, background: 'transparent',
           border: `1.5px solid ${color}44`, borderRadius: 8,
@@ -727,8 +738,8 @@ function IconToolButton({
           transition: 'background 0.12s, border-color 0.12s',
           fontFamily: 'system-ui, sans-serif',
         }}
-        onFocus={() => setTip(true)}
-        onBlur={() => setTip(false)}
+        onFocus={showTip}
+        onBlur={hideTip}
       >
         {icon}
       </button>

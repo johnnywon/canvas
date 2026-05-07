@@ -31,7 +31,8 @@
       "Bash(git -C ~/Developer/pulson-canvas add -A)",
       "Bash(git -C '~/Developer/pulson-canvas' commit -m 'fix: add --remote flag to migrations:remote script *)",
       "Bash(git -C ~/Developer/pulson-canvas push)",
-      "Bash(git -C '~/Developer/pulson-canvas' commit -m ' *)"
+      "Bash(git -C '~/Developer/pulson-canvas' commit -m ' *)",
+      "Bash(git -C '~/Developer/pulson-canvas' commit -m 'fix: toolbar tooltip delay + sticky note hover delete *)"
     ]
   }
 }
