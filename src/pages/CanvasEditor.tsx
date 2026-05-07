@@ -9,6 +9,7 @@ import {
   Controls,
   ControlButton,
   MiniMap,
+  SelectionMode,
   useNodesState,
   useEdgesState,
   useReactFlow,
@@ -638,6 +639,11 @@ function CanvasEditorInner() {
             nodesConnectable={!isViewer && isInteractive}
             deleteKeyCode={isViewer || !isInteractive ? null : 'Backspace'}
             elementsSelectable={true}
+            multiSelectionKeyCode="Shift"
+            selectionKeyCode="Meta"
+            selectionOnDrag={false}
+            selectionMode={SelectionMode.Partial}
+            panOnDrag={[0, 2]}
             fitView
             fitViewOptions={{ padding: 0.2, minZoom: 0.3 }}
             style={{ background: '#030712' }}
