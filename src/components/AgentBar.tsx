@@ -176,24 +176,26 @@ export function AgentBar({ canvasId, onAddContent }: Props) {
     >
       {/* Conversation history — above the bar */}
       {visible && messages.length > 0 && (
-        <div style={{ width: 480, marginBottom: 8, position: 'relative', pointerEvents: 'all' }}>
-          {/* Clear chat button */}
-          <button
-            onClick={() => setMessages([])}
-            title="Clear conversation"
-            style={{
-              position: 'absolute', top: 0, right: 0, zIndex: 10,
-              background: 'rgba(31,41,55,0.85)', border: '1px solid rgba(255,255,255,0.07)',
-              borderRadius: 10, color: '#6b7280', fontSize: 11, cursor: 'pointer',
-              padding: '3px 8px', backdropFilter: 'blur(8px)',
-              transition: 'color 0.12s',
-            }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#e5e7eb')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#6b7280')}
-          >
-            ✕ Clear
-          </button>
+        <div style={{ width: 480, marginBottom: 8, pointerEvents: 'all', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {/* Clear button row — sits above messages, never overlaps */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => setMessages([])}
+              title="Clear conversation"
+              style={{
+                background: 'rgba(31,41,55,0.85)', border: '1px solid rgba(255,255,255,0.07)',
+                borderRadius: 10, color: '#6b7280', fontSize: 11, cursor: 'pointer',
+                padding: '3px 10px', backdropFilter: 'blur(8px)',
+                transition: 'color 0.12s',
+              }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#e5e7eb')}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#6b7280')}
+            >
+              ✕ Clear
+            </button>
+          </div>
 
+          <div style={{ position: 'relative' }}>
         <div
           ref={historyRef}
           style={{
@@ -261,11 +263,12 @@ export function AgentBar({ canvasId, onAddContent }: Props) {
         </div>
 
         {/* Gradient fade at the bottom of the history */}
-        <div style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0, height: 48,
-          background: 'linear-gradient(to bottom, transparent, rgba(3,7,18,0.95))',
-          pointerEvents: 'none',
-        }} />
+          <div style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0, height: 48,
+            background: 'linear-gradient(to bottom, transparent, rgba(3,7,18,0.95))',
+            pointerEvents: 'none',
+          }} />
+          </div>
         </div>
       )}
 
