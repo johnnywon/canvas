@@ -26,7 +26,11 @@
       "Bash(npm *)",
       "Bash(xargs kill -9)",
       "Bash(rm .dev.vars)",
-      "Bash(nano .dev.vars)"
+      "Bash(nano .dev.vars)",
+      "Bash(npx wrangler *)",
+      "Bash(git -C ~/Developer/pulson-canvas add -A)",
+      "Bash(git -C '~/Developer/pulson-canvas' commit -m 'fix: add --remote flag to migrations:remote script *)",
+      "Bash(git -C ~/Developer/pulson-canvas push)"
     ]
   }
 }
