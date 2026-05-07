@@ -15,6 +15,7 @@ export function ImageNode({ id, data, selected }: NodeProps) {
   const hasComments = commentedIds.has(id)
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const [hovered, setHovered] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { userRole } = useContext(CanvasContext)
@@ -62,6 +63,8 @@ export function ImageNode({ id, data, selected }: NodeProps) {
 
   return (
     <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -85,7 +88,7 @@ export function ImageNode({ id, data, selected }: NodeProps) {
       <Handle type="target" position={Position.Left} />
       <Handle type="target" position={Position.Top} id="top-target" />
 
-      {selected && userRole !== 'viewer' && <NodeDeleteButton id={id} deleteElements={deleteElements} />}
+      {userRole !== 'viewer' && <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} />}
 
       {nodeData.imageUrl ? (
         <>

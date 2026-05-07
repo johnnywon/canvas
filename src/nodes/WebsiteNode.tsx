@@ -15,6 +15,7 @@ export function WebsiteNode({ id, data, selected }: NodeProps) {
   const { openThread, commentedIds } = useContext(CanvasContext)
   const d = data as WebsiteNodeData
   const hasComments = commentedIds.has(id)
+  const [hovered, setHovered] = useState(false)
 
   const [urlInput, setUrlInput] = useState(d.url ?? '')
   const iframeLoadedRef = useRef(false)
@@ -67,6 +68,8 @@ export function WebsiteNode({ id, data, selected }: NodeProps) {
 
   return (
     <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         width: '100%',
         height: '100%',
@@ -100,7 +103,7 @@ export function WebsiteNode({ id, data, selected }: NodeProps) {
       <Handle type="target" position={Position.Left} />
       <Handle type="target" position={Position.Top} id="top-target" />
 
-      {selected && userRole !== 'viewer' && <NodeDeleteButton id={id} deleteElements={deleteElements} />}
+      {userRole !== 'viewer' && <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} />}
 
       {/* Address bar */}
       <div style={{

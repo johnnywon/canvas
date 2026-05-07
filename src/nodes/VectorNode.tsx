@@ -3,32 +3,100 @@ import { Handle, NodeResizer, Position, useReactFlow, type NodeProps, type React
 import { CanvasContext } from '../contexts/CanvasContext'
 import { CommentIcon, PencilIcon } from '../components/icons'
 
-// Shared delete button — used by all node types
-export function NodeDeleteButton({ id, deleteElements }: {
+// Shared delete button — hover to reveal, click for inline confirmation
+export function NodeDeleteButton({ id, deleteElements, visible }: {
   id: string
   deleteElements: ReactFlowInstance['deleteElements']
+  visible: boolean
 }) {
+  const [confirming, setConfirming] = useState(false)
+  const cancelTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  // Auto-cancel confirmation after 4s of inactivity
+  const startConfirm = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setConfirming(true)
+    clearTimeout(cancelTimerRef.current)
+    cancelTimerRef.current = window.setTimeout(() => setConfirming(false), 4000)
+  }
+
+  const cancel = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    clearTimeout(cancelTimerRef.current)
+    setConfirming(false)
+  }
+
+  const confirm = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    deleteElements({ nodes: [{ id }] })
+  }
+
+  const shown = visible || confirming
+
   return (
-    <button
+    <div
+      style={{
+        position: 'absolute', top: 5, left: 5, zIndex: 10,
+        opacity: shown ? 1 : 0,
+        pointerEvents: shown ? 'all' : 'none',
+        transition: 'opacity 0.15s ease',
+      }}
       className="nodrag nopan"
       onMouseDown={(e) => e.stopPropagation()}
-      onClick={(e) => { e.stopPropagation(); deleteElements({ nodes: [{ id }] }) }}
-      title="Delete"
-      style={{
-        position: 'absolute', top: 5, left: 5, zIndex: 5,
-        width: 18, height: 18, borderRadius: '50%',
-        background: 'rgba(31,41,55,0.92)',
-        border: '1px solid #374151',
-        color: '#6b7280', cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 9, lineHeight: 1, padding: 0,
-        transition: 'background 0.12s, color 0.12s',
-      }}
-      onMouseEnter={(e) => { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#7f1d1d'; b.style.color = '#fca5a5' }}
-      onMouseLeave={(e) => { const b = e.currentTarget as HTMLButtonElement; b.style.background = 'rgba(31,41,55,0.92)'; b.style.color = '#6b7280' }}
     >
-      ✕
-    </button>
+      {confirming ? (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 4,
+          background: 'rgba(69,10,10,0.97)',
+          border: '1px solid #b91c1c',
+          borderRadius: 12,
+          padding: '3px 5px 3px 8px',
+          backdropFilter: 'blur(10px)',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+          animation: 'fadeIn 0.1s ease',
+          whiteSpace: 'nowrap',
+        }}>
+          <span style={{ fontSize: 11, color: '#fca5a5', fontWeight: 500 }}>Delete?</span>
+          <button
+            onClick={confirm}
+            style={{
+              width: 22, height: 22, borderRadius: '50%',
+              background: '#dc2626', border: 'none',
+              color: 'white', fontSize: 11, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >✓</button>
+          <button
+            onClick={cancel}
+            style={{
+              width: 22, height: 22, borderRadius: '50%',
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.15)',
+              color: '#fca5a5', fontSize: 11, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >✕</button>
+        </div>
+      ) : (
+        <button
+          onClick={startConfirm}
+          title="Delete"
+          style={{
+            width: 20, height: 20, borderRadius: '50%',
+            background: 'rgba(31,41,55,0.92)',
+            border: '1px solid #374151',
+            color: '#6b7280', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 9, lineHeight: 1, padding: 0,
+            transition: 'background 0.12s, color 0.12s, border-color 0.12s',
+          }}
+          onMouseEnter={(e) => { const b = e.currentTarget as HTMLButtonElement; b.style.background = 'rgba(127,29,29,0.9)'; b.style.color = '#fca5a5'; b.style.borderColor = '#7f1d1d' }}
+          onMouseLeave={(e) => { const b = e.currentTarget as HTMLButtonElement; b.style.background = 'rgba(31,41,55,0.92)'; b.style.color = '#6b7280'; b.style.borderColor = '#374151' }}
+        >
+          ✕
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -55,6 +123,7 @@ export function VectorNode({ id, data, selected }: NodeProps) {
 
   const colorPreset = VECTOR_COLORS.find((c) => c.name === nodeData.color) ?? VECTOR_COLORS[0]
   const hasComments = commentedIds.has(id)
+  const [hovered, setHovered] = useState(false)
 
   useEffect(() => {
     if (!editing) setDraft(nodeData.label ?? '')
@@ -89,6 +158,8 @@ export function VectorNode({ id, data, selected }: NodeProps) {
   return (
     <div
       onDoubleClick={startEditing}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         width: '100%',
         height: '100%',
@@ -125,9 +196,8 @@ export function VectorNode({ id, data, selected }: NodeProps) {
       <Handle type="target" position={Position.Left} />
       <Handle type="target" position={Position.Top} id="top-target" />
 
-      {/* Delete button */}
-      {selected && userRole !== 'viewer' && (
-        <NodeDeleteButton id={id} deleteElements={deleteElements} />
+      {userRole !== 'viewer' && (
+        <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} />
       )}
 
       {/* Edit button */}

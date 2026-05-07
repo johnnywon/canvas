@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { NodeResizer, useReactFlow, type NodeProps } from '@xyflow/react'
 import { NodeDeleteButton } from './VectorNode'
 
@@ -14,6 +14,7 @@ const COLORS = ['#e5e7eb', '#60a5fa', '#f87171', '#34d399', '#fbbf24', '#c084fc'
 
 export function ArrowNode({ id, data, selected }: NodeProps) {
   const { updateNodeData, getViewport, deleteElements } = useReactFlow()
+  const [hovered, setHovered] = useState(false)
   const d = data as ArrowNodeData
 
   const tailX = d.tailX ?? 10
@@ -55,6 +56,8 @@ export function ArrowNode({ id, data, selected }: NodeProps) {
 
   return (
     <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         width: '100%',
         height: '100%',
@@ -122,12 +125,10 @@ export function ArrowNode({ id, data, selected }: NodeProps) {
         onPointerUp={onHandlePointerUp}
       />
 
-      {/* Delete button */}
-      {selected && (
-        <div style={{ position: 'absolute', top: midY - 9, left: midX - 40, pointerEvents: 'all' }}>
-          <NodeDeleteButton id={id} deleteElements={deleteElements} />
-        </div>
-      )}
+      {/* Delete button — positioned near arrow midpoint */}
+      <div style={{ position: 'absolute', top: Math.min(midY - 9, 5), left: Math.max(midX - 30, 5), pointerEvents: 'all' }}>
+        <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} />
+      </div>
 
       {/* Color picker (shows when selected) */}
       {selected && (
