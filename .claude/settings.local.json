@@ -30,7 +30,8 @@
       "Bash(npx wrangler *)",
       "Bash(git -C ~/Developer/pulson-canvas add -A)",
       "Bash(git -C '~/Developer/pulson-canvas' commit -m 'fix: add --remote flag to migrations:remote script *)",
-      "Bash(git -C ~/Developer/pulson-canvas push)"
+      "Bash(git -C ~/Developer/pulson-canvas push)",
+      "Bash(git -C '~/Developer/pulson-canvas' commit -m ' *)"
     ]
   }
 }

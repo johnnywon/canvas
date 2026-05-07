@@ -211,7 +211,7 @@ function CanvasEditorInner() {
         setEdges(data.edges.map((e: DBEdge) => toFlowEdge(e, nodeTypeMap)))
         requestAnimationFrame(() => { isLoadedRef.current = true })
       })
-      .catch(() => navigate('/canvases'))
+      .catch(() => navigate('/home'))
   }, [canvasId, navigate, setNodes, setEdges])
 
   // ── Auto-save (skipped for viewers) ───────────────────────────────────────
@@ -394,7 +394,7 @@ function CanvasEditorInner() {
         {/* Header */}
         <div style={{ height: 48, background: '#030712', borderBottom: '1px solid #1f2937', display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px', flexShrink: 0, zIndex: 10 }}>
           <button
-            onClick={() => navigate('/canvases')}
+            onClick={() => navigate('/home')}
             style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: 13, padding: '4px 8px', borderRadius: 6 }}
             onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#e5e7eb')}
             onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#6b7280')}

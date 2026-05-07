@@ -6,9 +6,10 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/canvases" replace />} />
-        <Route path="/canvases" element={<CanvasList />} />
-        <Route path="/canvases/:id" element={<CanvasEditor />} />
+        <Route path="/" element={<Navigate to="/home" replace />} />
+        <Route path="/canvases" element={<Navigate to="/home" replace />} />
+        <Route path="/home" element={<CanvasList />} />
+        <Route path="/canvas/:id" element={<CanvasEditor />} />
       </Routes>
     </BrowserRouter>
   )

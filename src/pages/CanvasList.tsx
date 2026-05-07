@@ -63,7 +63,7 @@ export function CanvasList() {
         body: JSON.stringify({ name: 'Untitled Canvas' }),
       })
       const canvas = await res.json() as Canvas
-      navigate(`/canvases/${canvas.id}`)
+      navigate(`/canvas/${canvas.id}`)
     } finally {
       setCreating(false)
     }
@@ -175,7 +175,7 @@ export function CanvasList() {
                     key={canvas.id}
                     canvas={canvas}
                     confirming={confirming === canvas.id}
-                    onOpen={() => navigate(`/canvases/${canvas.id}`)}
+                    onOpen={() => navigate(`/canvas/${canvas.id}`)}
                     onDeleteRequest={() => setConfirming(canvas.id)}
                     onDeleteConfirm={() => deleteCanvas(canvas.id)}
                     onDeleteCancel={() => setConfirming(null)}
@@ -193,7 +193,7 @@ export function CanvasList() {
                     canvas={canvas}
                     showOwner
                     confirming={false}
-                    onOpen={() => navigate(`/canvases/${canvas.id}`)}
+                    onOpen={() => navigate(`/canvas/${canvas.id}`)}
                     onDeleteRequest={() => {}}
                     onDeleteConfirm={() => {}}
                     onDeleteCancel={() => {}}
@@ -212,7 +212,7 @@ export function CanvasList() {
                     canvas={canvas}
                     showOwner={canvas.role !== 'owner'}
                     confirming={confirming === canvas.id}
-                    onOpen={() => navigate(`/canvases/${canvas.id}`)}
+                    onOpen={() => navigate(`/canvas/${canvas.id}`)}
                     onDeleteRequest={() => canvas.role === 'owner' ? setConfirming(canvas.id) : undefined}
                     onDeleteConfirm={() => deleteCanvas(canvas.id)}
                     onDeleteCancel={() => setConfirming(null)}
@@ -223,7 +223,7 @@ export function CanvasList() {
             ))}
 
             {activeTag && filteredOwned.length === 0 && filteredShared.length === 0 && (
-              <p className="text-gray-500 text-sm">No canvases tagged {activeTag}.</p>
+              <p className="text-gray-500 text-sm">Nothing tagged {activeTag}.</p>
             )}
           </div>
         )}
@@ -414,7 +414,7 @@ function EmptyState({ onCreate, creating }: { onCreate: () => void; creating: bo
         </svg>
       </div>
       <div>
-        <p className="text-gray-300 font-medium mb-1">No canvases yet</p>
+        <p className="text-gray-300 font-medium mb-1">Nothing here yet</p>
         <p className="text-gray-600 text-sm">Create your first one to get started.</p>
       </div>
       <button onClick={onCreate} disabled={creating} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-lg text-sm font-semibold transition-colors cursor-pointer">
