@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react'
-import { Handle, NodeResizeControl, Position, useReactFlow, type NodeProps, type ReactFlowInstance } from '@xyflow/react'
+import { Handle, NodeResizeControl, Position, useReactFlow, useStore, type NodeProps, type ReactFlowInstance } from '@xyflow/react'
 import { CanvasContext } from '../contexts/CanvasContext'
 import { CommentIcon, PencilIcon } from '../components/icons'
 
@@ -139,6 +139,8 @@ export function VectorNode({ id, data, selected }: NodeProps) {
   const colorPreset = VECTOR_COLORS.find((c) => c.name === nodeData.color) ?? VECTOR_COLORS[0]
   const hasComments = commentedIds.has(id)
   const [hovered, setHovered] = useState(false)
+  // Keep handles visible while a connection is being dragged from this node
+  const connectingFromThis = useStore(s => s.connectionClickStartHandle?.nodeId === id)
 
   useEffect(() => {
     if (!editing) setDraft(nodeData.label ?? '')
@@ -221,8 +223,8 @@ export function VectorNode({ id, data, selected }: NodeProps) {
         </>
       )}
 
-      <Handle type="target" position={Position.Left} style={{ transform: hovered ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
-      <Handle type="target" position={Position.Top} id="top-target" style={{ transform: hovered ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
+      <Handle type="target" position={Position.Left} style={{ transform: (hovered || connectingFromThis) ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
+      <Handle type="target" position={Position.Top} id="top-target" style={{ transform: (hovered || connectingFromThis) ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
 
       {userRole !== 'viewer' && (
         <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} />
@@ -326,8 +328,8 @@ export function VectorNode({ id, data, selected }: NodeProps) {
         <CommentIcon size={12} />
       </button>
 
-      <Handle type="source" position={Position.Right} style={{ transform: hovered ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
-      <Handle type="source" position={Position.Bottom} id="bottom-source" style={{ transform: hovered ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
+      <Handle type="source" position={Position.Right} style={{ transform: (hovered || connectingFromThis) ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
+      <Handle type="source" position={Position.Bottom} id="bottom-source" style={{ transform: (hovered || connectingFromThis) ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
     </div>
   )
 }
