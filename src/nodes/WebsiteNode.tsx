@@ -17,6 +17,8 @@ export function WebsiteNode({ id, data, selected }: NodeProps) {
   const hasComments = commentedIds.has(id)
   const [hovered, setHovered] = useState(false)
   const connectingFromThis = useStore(s => s.connectionClickStartHandle?.nodeId === id)
+  const anyConnectionActive = useStore(s => !!s.connectionClickStartHandle)
+  const showHandles = hovered || connectingFromThis || anyConnectionActive
 
   const [urlInput, setUrlInput] = useState(d.url ?? '')
   const iframeLoadedRef = useRef(false)
@@ -101,8 +103,8 @@ export function WebsiteNode({ id, data, selected }: NodeProps) {
         lineStyle={{ borderColor: '#10b981', borderWidth: 1.5 }}
       />
 
-      <Handle type="target" position={Position.Left} style={{ transform: (hovered || connectingFromThis) ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
-      <Handle type="target" position={Position.Top} id="top-target" style={{ transform: (hovered || connectingFromThis) ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
+      {showHandles && <Handle type="target" position={Position.Left} />}
+      {showHandles && <Handle type="target" position={Position.Top} id="top-target" />}
 
       {userRole !== 'viewer' && <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} />}
 
@@ -249,8 +251,8 @@ export function WebsiteNode({ id, data, selected }: NodeProps) {
         </button>
       </div>
 
-      <Handle type="source" position={Position.Right} style={{ transform: (hovered || connectingFromThis) ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
-      <Handle type="source" position={Position.Bottom} id="bottom-source" style={{ transform: (hovered || connectingFromThis) ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
+      {showHandles && <Handle type="source" position={Position.Right} />}
+      {showHandles && <Handle type="source" position={Position.Bottom} id="bottom-source" />}
     </div>
   )
 }

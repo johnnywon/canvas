@@ -139,8 +139,10 @@ export function VectorNode({ id, data, selected }: NodeProps) {
   const colorPreset = VECTOR_COLORS.find((c) => c.name === nodeData.color) ?? VECTOR_COLORS[0]
   const hasComments = commentedIds.has(id)
   const [hovered, setHovered] = useState(false)
-  // Keep handles visible while a connection is being dragged from this node
+  // Show handles when hovered, connecting from this node, or any connection is in progress (so this node is a valid target)
   const connectingFromThis = useStore(s => s.connectionClickStartHandle?.nodeId === id)
+  const anyConnectionActive = useStore(s => !!s.connectionClickStartHandle)
+  const showHandles = hovered || connectingFromThis || anyConnectionActive
 
   useEffect(() => {
     if (!editing) setDraft(nodeData.label ?? '')
@@ -223,8 +225,8 @@ export function VectorNode({ id, data, selected }: NodeProps) {
         </>
       )}
 
-      <Handle type="target" position={Position.Left} style={{ transform: (hovered || connectingFromThis) ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
-      <Handle type="target" position={Position.Top} id="top-target" style={{ transform: (hovered || connectingFromThis) ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
+      {showHandles && <Handle type="target" position={Position.Left} />}
+      {showHandles && <Handle type="target" position={Position.Top} id="top-target" />}
 
       {userRole !== 'viewer' && (
         <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} />
@@ -328,8 +330,8 @@ export function VectorNode({ id, data, selected }: NodeProps) {
         <CommentIcon size={12} />
       </button>
 
-      <Handle type="source" position={Position.Right} style={{ transform: (hovered || connectingFromThis) ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
-      <Handle type="source" position={Position.Bottom} id="bottom-source" style={{ transform: (hovered || connectingFromThis) ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
+      {showHandles && <Handle type="source" position={Position.Right} />}
+      {showHandles && <Handle type="source" position={Position.Bottom} id="bottom-source" />}
     </div>
   )
 }
