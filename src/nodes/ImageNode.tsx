@@ -92,8 +92,8 @@ export function ImageNode({ id, data, selected }: NodeProps) {
       }}
       onClick={() => { if (!nodeData.imageUrl) fileInputRef.current?.click() }}
     >
-      <Handle type="target" position={Position.Left} style={{ opacity: hovered || selected ? 1 : 0, transition: 'opacity 0.15s' }} />
-      <Handle type="target" position={Position.Top} id="top-target" style={{ opacity: hovered || selected ? 1 : 0, transition: 'opacity 0.15s' }} />
+      <Handle type="target" position={Position.Left} style={{ opacity: hovered ? 1 : 0, transition: 'opacity 0.15s' }} />
+      <Handle type="target" position={Position.Top} id="top-target" style={{ opacity: hovered ? 1 : 0, transition: 'opacity 0.15s' }} />
 
       {userRole !== 'viewer' && <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} />}
 
@@ -179,8 +179,8 @@ export function ImageNode({ id, data, selected }: NodeProps) {
 
       <input ref={fileInputRef} type="file" accept="image/*" className="nodrag nopan" style={{ display: 'none' }} onChange={handleFileChange} />
 
-      <Handle type="source" position={Position.Right} style={{ opacity: hovered || selected ? 1 : 0, transition: 'opacity 0.15s' }} />
-      <Handle type="source" position={Position.Bottom} id="bottom-source" style={{ opacity: hovered || selected ? 1 : 0, transition: 'opacity 0.15s' }} />
+      <Handle type="source" position={Position.Right} style={{ opacity: hovered ? 1 : 0, transition: 'opacity 0.15s' }} />
+      <Handle type="source" position={Position.Bottom} id="bottom-source" style={{ opacity: hovered ? 1 : 0, transition: 'opacity 0.15s' }} />
     </div>
   )
 }
