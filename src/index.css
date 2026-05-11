@@ -60,10 +60,35 @@ body,
   transition: opacity 0.15s ease, background 0.12s, border-color 0.12s, transform 0.12s !important;
 }
 
-/* Handle visibility controlled via inline style in node components.
-   Base transition only — no default filter here. */
+/* Handles nearly invisible at rest — pop on node hover or connection */
 .react-flow__handle {
-  transition: filter 0.15s ease;
+  width: 8px !important;
+  height: 8px !important;
+  background: #0d1117 !important;
+  border: 1.5px solid #1f2937 !important;
+  border-radius: 50% !important;
+  opacity: 0.18 !important;
+  transition: opacity 0.15s ease, transform 0.12s ease,
+              background 0.12s ease, border-color 0.12s ease !important;
+}
+
+.react-flow__node:hover .react-flow__handle {
+  opacity: 1 !important;
+  border-color: #374151 !important;
+}
+
+.react-flow__handle:hover {
+  opacity: 1 !important;
+  background: #6366f1 !important;
+  border-color: #818cf8 !important;
+  transform: scale(1.5) !important;
+}
+
+.react-flow__handle.connectionindicator,
+.react-flow__handle.valid {
+  opacity: 1 !important;
+  background: #6366f1 !important;
+  border-color: #a5b4fc !important;
 }
 
 .react-flow__handle:hover {
