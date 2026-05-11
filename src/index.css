@@ -50,18 +50,8 @@ body,
 *::-webkit-scrollbar-track  { background: transparent; }
 
 /* ── React Flow: handles ───────────────────────────────────────────────────── */
-/*
-  CSS custom property approach: --h-op is set on the node wrapper and
-  inherited by all child handles. This bypasses CSS source-order conflicts
-  with React Flow's own stylesheet.
-*/
-.react-flow__node {
-  --h-op: 0;
-}
-.react-flow__node:hover,
-.react-flow__node.selected {
-  --h-op: 1;
-}
+/* Opacity is controlled per-node via inline style (see node components).
+   These rules only handle active-connection state and hover styling. */
 
 .react-flow__handle {
   width: 10px !important;
@@ -69,12 +59,10 @@ body,
   border: 2px solid #374151 !important;
   background: #0d1117 !important;
   border-radius: 50% !important;
-  opacity: var(--h-op, 0) !important;
   transition: opacity 0.15s ease, background 0.12s, border-color 0.12s, transform 0.12s !important;
 }
 
 .react-flow__handle:hover {
-  opacity: 1 !important;
   background: #6366f1 !important;
   border-color: #818cf8 !important;
   transform: scale(1.5) !important;
