@@ -60,18 +60,10 @@ body,
   transition: opacity 0.15s ease, background 0.12s, border-color 0.12s, transform 0.12s !important;
 }
 
-/* Handles invisible by default — filter is never touched by React Flow's CSS */
+/* Handle visibility controlled via inline style in node components.
+   Base transition only — no default filter here. */
 .react-flow__handle {
-  filter: opacity(0);
   transition: filter 0.15s ease;
-}
-
-/* Show when node is hovered or a connection is in progress */
-.react-flow__node:hover .react-flow__handle,
-.react-flow__handle.connectionindicator,
-.react-flow__handle.valid,
-.react-flow__handle:hover {
-  filter: opacity(1);
 }
 
 .react-flow__handle:hover {

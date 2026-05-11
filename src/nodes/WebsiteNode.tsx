@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, useState } from 'react'
-import { Handle, NodeResizer, Position, useReactFlow, type NodeProps } from '@xyflow/react'
+import { Handle, NodeResizer, Position, useConnection, useReactFlow, type NodeProps } from '@xyflow/react'
 import { CanvasContext } from '../contexts/CanvasContext'
 import { CommentIcon } from '../components/icons'
 import { NodeDeleteButton } from './VectorNode'
@@ -16,6 +16,8 @@ export function WebsiteNode({ id, data, selected }: NodeProps) {
   const d = data as WebsiteNodeData
   const hasComments = commentedIds.has(id)
   const [hovered, setHovered] = useState(false)
+  const { inProgress: connecting } = useConnection()
+  const handleFilter = (hovered || connecting) ? 'opacity(1)' : 'opacity(0)'
 
   const [urlInput, setUrlInput] = useState(d.url ?? '')
   const iframeLoadedRef = useRef(false)
@@ -100,8 +102,8 @@ export function WebsiteNode({ id, data, selected }: NodeProps) {
         lineStyle={{ borderColor: '#10b981', borderWidth: 1.5 }}
       />
 
-      <Handle type="target" position={Position.Left} />
-      <Handle type="target" position={Position.Top} id="top-target" />
+      <Handle type="target" position={Position.Left} style={{ filter: handleFilter }} />
+      <Handle type="target" position={Position.Top} id="top-target" style={{ filter: handleFilter }} />
 
       {userRole !== 'viewer' && <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} />}
 
@@ -248,8 +250,8 @@ export function WebsiteNode({ id, data, selected }: NodeProps) {
         </button>
       </div>
 
-      <Handle type="source" position={Position.Right} />
-      <Handle type="source" position={Position.Bottom} id="bottom-source" />
+      <Handle type="source" position={Position.Right} style={{ filter: handleFilter }} />
+      <Handle type="source" position={Position.Bottom} id="bottom-source" style={{ filter: handleFilter }} />
     </div>
   )
 }
