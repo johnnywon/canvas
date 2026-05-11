@@ -74,7 +74,7 @@ export function ImageNode({ id, data, selected }: NodeProps) {
     <div
       ref={outerRef}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseLeave={(e) => { const rel = e.relatedTarget as Element | null; if (rel?.closest('.react-flow__handle')) return; setHovered(false) }}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

@@ -178,7 +178,7 @@ export function VectorNode({ id, data, selected }: NodeProps) {
     <div
       onDoubleClick={startEditing}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseLeave={(e) => { const rel = e.relatedTarget as Element | null; if (rel?.closest('.react-flow__handle')) return; setHovered(false) }}
       style={{
         width: '100%',
         height: '100%',
