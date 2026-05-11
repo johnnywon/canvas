@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react'
-import { Handle, NodeResizeControl, Position, useReactFlow, useStore, type NodeProps, type ReactFlowInstance } from '@xyflow/react'
+import { Handle, NodeResizeControl, Position, useReactFlow, type NodeProps, type ReactFlowInstance } from '@xyflow/react'
 import { CanvasContext } from '../contexts/CanvasContext'
 import { CommentIcon, PencilIcon } from '../components/icons'
 
@@ -139,13 +139,6 @@ export function VectorNode({ id, data, selected }: NodeProps) {
   const colorPreset = VECTOR_COLORS.find((c) => c.name === nodeData.color) ?? VECTOR_COLORS[0]
   const hasComments = commentedIds.has(id)
   const [hovered, setHovered] = useState(false)
-  const hideTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const connectingFromThis = useStore(s => s.connectionClickStartHandle?.nodeId === id)
-  const anyConnectionActive = useStore(s => !!s.connectionClickStartHandle)
-  const showHandles = hovered || connectingFromThis || anyConnectionActive
-
-  const onEnter = () => { clearTimeout(hideTimerRef.current); setHovered(true) }
-  const onLeave = () => { clearTimeout(hideTimerRef.current); hideTimerRef.current = setTimeout(() => setHovered(false), 400) }
 
   useEffect(() => {
     if (!editing) setDraft(nodeData.label ?? '')
@@ -180,8 +173,8 @@ export function VectorNode({ id, data, selected }: NodeProps) {
   return (
     <div
       onDoubleClick={startEditing}
-      onMouseEnter={onEnter}
-      onMouseLeave={onLeave}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         width: '100%',
         height: '100%',
@@ -228,8 +221,8 @@ export function VectorNode({ id, data, selected }: NodeProps) {
         </>
       )}
 
-      {showHandles && <Handle type="target" position={Position.Left} />}
-      {showHandles && <Handle type="target" position={Position.Top} id="top-target" />}
+      <Handle type="target" position={Position.Left} />
+      <Handle type="target" position={Position.Top} id="top-target" />
 
       {userRole !== 'viewer' && (
         <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} />
@@ -333,8 +326,8 @@ export function VectorNode({ id, data, selected }: NodeProps) {
         <CommentIcon size={12} />
       </button>
 
-      {showHandles && <Handle type="source" position={Position.Right} />}
-      {showHandles && <Handle type="source" position={Position.Bottom} id="bottom-source" />}
+      <Handle type="source" position={Position.Right} />
+      <Handle type="source" position={Position.Bottom} id="bottom-source" />
     </div>
   )
 }

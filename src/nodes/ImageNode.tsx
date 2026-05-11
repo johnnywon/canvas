@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react'
-import { Handle, Position, useReactFlow, useStore, type NodeProps } from '@xyflow/react'
+import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react'
 import { CanvasContext } from '../contexts/CanvasContext'
 import { CommentIcon } from '../components/icons'
 import { NodeDeleteButton } from './VectorNode'
@@ -16,13 +16,6 @@ export function ImageNode({ id, data, selected }: NodeProps) {
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const [hovered, setHovered] = useState(false)
-  const hideTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const connectingFromThis = useStore(s => s.connectionClickStartHandle?.nodeId === id)
-  const anyConnectionActive = useStore(s => !!s.connectionClickStartHandle)
-  const showHandles = hovered || connectingFromThis || anyConnectionActive
-
-  const onEnter = () => { clearTimeout(hideTimerRef.current); setHovered(true) }
-  const onLeave = () => { clearTimeout(hideTimerRef.current); hideTimerRef.current = setTimeout(() => setHovered(false), 400) }
   const fileInputRef = useRef<HTMLInputElement>(null)
   const outerRef = useRef<HTMLDivElement>(null)
 
@@ -77,8 +70,8 @@ export function ImageNode({ id, data, selected }: NodeProps) {
   return (
     <div
       ref={outerRef}
-      onMouseEnter={onEnter}
-      onMouseLeave={onLeave}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -99,8 +92,8 @@ export function ImageNode({ id, data, selected }: NodeProps) {
       }}
       onClick={() => { if (!nodeData.imageUrl) fileInputRef.current?.click() }}
     >
-      {showHandles && <Handle type="target" position={Position.Left} />}
-      {showHandles && <Handle type="target" position={Position.Top} id="top-target" />}
+      <Handle type="target" position={Position.Left} />
+      <Handle type="target" position={Position.Top} id="top-target" />
 
       {userRole !== 'viewer' && <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} />}
 
@@ -186,8 +179,8 @@ export function ImageNode({ id, data, selected }: NodeProps) {
 
       <input ref={fileInputRef} type="file" accept="image/*" className="nodrag nopan" style={{ display: 'none' }} onChange={handleFileChange} />
 
-      {showHandles && <Handle type="source" position={Position.Right} />}
-      {showHandles && <Handle type="source" position={Position.Bottom} id="bottom-source" />}
+      <Handle type="source" position={Position.Right} />
+      <Handle type="source" position={Position.Bottom} id="bottom-source" />
     </div>
   )
 }
