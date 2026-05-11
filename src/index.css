@@ -60,10 +60,10 @@ body,
   transition: opacity 0.15s ease, background 0.12s, border-color 0.12s, transform 0.12s !important;
 }
 
-/* Hidden by default — class toggled off when node is hovered (see node components) */
-.react-flow__handle.rf-hidden:not(.connectionindicator):not(.valid):not(:hover) {
-  opacity: 0 !important;
-  pointer-events: none !important;
+/* Show handles during active connection even if node isn't hovered */
+.react-flow__handle.connectionindicator,
+.react-flow__handle.valid {
+  transform: scale(1) !important;
 }
 
 .react-flow__handle:hover {

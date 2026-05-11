@@ -100,8 +100,8 @@ export function WebsiteNode({ id, data, selected }: NodeProps) {
         lineStyle={{ borderColor: '#10b981', borderWidth: 1.5 }}
       />
 
-      <Handle type="target" position={Position.Left} className={hovered ? '' : 'rf-hidden'} />
-      <Handle type="target" position={Position.Top} id="top-target" className={hovered ? '' : 'rf-hidden'} />
+      <Handle type="target" position={Position.Left} style={{ transform: hovered ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
+      <Handle type="target" position={Position.Top} id="top-target" style={{ transform: hovered ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
 
       {userRole !== 'viewer' && <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} />}
 
@@ -248,8 +248,8 @@ export function WebsiteNode({ id, data, selected }: NodeProps) {
         </button>
       </div>
 
-      <Handle type="source" position={Position.Right} className={hovered ? '' : 'rf-hidden'} />
-      <Handle type="source" position={Position.Bottom} id="bottom-source" className={hovered ? '' : 'rf-hidden'} />
+      <Handle type="source" position={Position.Right} style={{ transform: hovered ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
+      <Handle type="source" position={Position.Bottom} id="bottom-source" style={{ transform: hovered ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
     </div>
   )
 }

@@ -92,8 +92,8 @@ export function ImageNode({ id, data, selected }: NodeProps) {
       }}
       onClick={() => { if (!nodeData.imageUrl) fileInputRef.current?.click() }}
     >
-      <Handle type="target" position={Position.Left} className={hovered ? '' : 'rf-hidden'} />
-      <Handle type="target" position={Position.Top} id="top-target" className={hovered ? '' : 'rf-hidden'} />
+      <Handle type="target" position={Position.Left} style={{ transform: hovered ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
+      <Handle type="target" position={Position.Top} id="top-target" style={{ transform: hovered ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
 
       {userRole !== 'viewer' && <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} />}
 
@@ -179,8 +179,8 @@ export function ImageNode({ id, data, selected }: NodeProps) {
 
       <input ref={fileInputRef} type="file" accept="image/*" className="nodrag nopan" style={{ display: 'none' }} onChange={handleFileChange} />
 
-      <Handle type="source" position={Position.Right} className={hovered ? '' : 'rf-hidden'} />
-      <Handle type="source" position={Position.Bottom} id="bottom-source" className={hovered ? '' : 'rf-hidden'} />
+      <Handle type="source" position={Position.Right} style={{ transform: hovered ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
+      <Handle type="source" position={Position.Bottom} id="bottom-source" style={{ transform: hovered ? 'scale(1)' : 'scale(0)', transformOrigin: 'center center' }} />
     </div>
   )
 }
