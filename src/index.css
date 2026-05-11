@@ -50,8 +50,6 @@ body,
 *::-webkit-scrollbar-track  { background: transparent; }
 
 /* ── React Flow: handles ───────────────────────────────────────────────────── */
-/* Opacity is controlled per-node via inline style (see node components).
-   These rules only handle active-connection state and hover styling. */
 
 .react-flow__handle {
   width: 10px !important;
@@ -60,6 +58,12 @@ body,
   background: #0d1117 !important;
   border-radius: 50% !important;
   transition: opacity 0.15s ease, background 0.12s, border-color 0.12s, transform 0.12s !important;
+}
+
+/* Hidden by default — class toggled off when node is hovered (see node components) */
+.react-flow__handle.rf-hidden:not(.connectionindicator):not(.valid):not(:hover) {
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 .react-flow__handle:hover {
