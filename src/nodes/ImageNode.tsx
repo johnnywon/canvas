@@ -16,9 +16,13 @@ export function ImageNode({ id, data, selected }: NodeProps) {
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const [hovered, setHovered] = useState(false)
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const connectingFromThis = useStore(s => s.connectionClickStartHandle?.nodeId === id)
   const anyConnectionActive = useStore(s => !!s.connectionClickStartHandle)
   const showHandles = hovered || connectingFromThis || anyConnectionActive
+
+  const onEnter = () => { clearTimeout(hideTimerRef.current); setHovered(true) }
+  const onLeave = () => { clearTimeout(hideTimerRef.current); hideTimerRef.current = setTimeout(() => setHovered(false), 400) }
   const fileInputRef = useRef<HTMLInputElement>(null)
   const outerRef = useRef<HTMLDivElement>(null)
 
@@ -73,8 +77,8 @@ export function ImageNode({ id, data, selected }: NodeProps) {
   return (
     <div
       ref={outerRef}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={(e) => { const rel = e.relatedTarget as Element | null; if (rel?.closest('.react-flow__handle')) return; setHovered(false) }}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

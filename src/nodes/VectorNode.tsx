@@ -139,10 +139,13 @@ export function VectorNode({ id, data, selected }: NodeProps) {
   const colorPreset = VECTOR_COLORS.find((c) => c.name === nodeData.color) ?? VECTOR_COLORS[0]
   const hasComments = commentedIds.has(id)
   const [hovered, setHovered] = useState(false)
-  // Show handles when hovered, connecting from this node, or any connection is in progress (so this node is a valid target)
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const connectingFromThis = useStore(s => s.connectionClickStartHandle?.nodeId === id)
   const anyConnectionActive = useStore(s => !!s.connectionClickStartHandle)
   const showHandles = hovered || connectingFromThis || anyConnectionActive
+
+  const onEnter = () => { clearTimeout(hideTimerRef.current); setHovered(true) }
+  const onLeave = () => { clearTimeout(hideTimerRef.current); hideTimerRef.current = setTimeout(() => setHovered(false), 400) }
 
   useEffect(() => {
     if (!editing) setDraft(nodeData.label ?? '')
@@ -177,8 +180,8 @@ export function VectorNode({ id, data, selected }: NodeProps) {
   return (
     <div
       onDoubleClick={startEditing}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={(e) => { const rel = e.relatedTarget as Element | null; if (rel?.closest('.react-flow__handle')) return; setHovered(false) }}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
       style={{
         width: '100%',
         height: '100%',
