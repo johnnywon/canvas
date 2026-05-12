@@ -211,7 +211,6 @@ export function VectorNode({ id, data, selected }: NodeProps) {
                 background: colorPreset.accent,
                 border: '2px solid #030712',
                 borderRadius: pos.includes('-') ? 3 : 2,
-                zIndex: 10,
                 cursor: pos === 'top' || pos === 'bottom' ? 'ns-resize'
                   : pos === 'left' || pos === 'right' ? 'ew-resize'
                   : undefined,
