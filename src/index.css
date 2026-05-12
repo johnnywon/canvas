@@ -67,7 +67,7 @@ body,
   background: #0d1117 !important;
   border: 1.5px solid #1f2937 !important;
   border-radius: 50% !important;
-  opacity: 0.18 !important;
+  opacity: 0 !important;
   transition: opacity 0.15s ease, transform 0.12s ease,
               background 0.12s ease, border-color 0.12s ease !important;
 }
