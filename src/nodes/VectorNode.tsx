@@ -221,8 +221,8 @@ export function VectorNode({ id, data, selected }: NodeProps) {
         </>
       )}
 
-      <Handle type="target" position={Position.Left} />
-      <Handle type="target" position={Position.Top} id="top-target" />
+      <Handle type="target" position={Position.Left} style={{ zIndex: 20 }} />
+      <Handle type="target" position={Position.Top} id="top-target" style={{ zIndex: 20 }} />
 
       {userRole !== 'viewer' && (
         <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} />
@@ -326,8 +326,8 @@ export function VectorNode({ id, data, selected }: NodeProps) {
         <CommentIcon size={12} />
       </button>
 
-      <Handle type="source" position={Position.Right} />
-      <Handle type="source" position={Position.Bottom} id="bottom-source" />
+      <Handle type="source" position={Position.Right} style={{ zIndex: 20 }} />
+      <Handle type="source" position={Position.Bottom} id="bottom-source" style={{ zIndex: 20 }} />
     </div>
   )
 }
