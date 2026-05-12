@@ -9,7 +9,6 @@ import {
   Controls,
   ControlButton,
   MiniMap,
-  SelectionMode,
   useNodesState,
   useEdgesState,
   useReactFlow,
@@ -784,9 +783,7 @@ function CanvasEditorInner() {
             elementsSelectable={true}
             multiSelectionKeyCode="Shift"
             selectionKeyCode="Meta"
-            selectionOnDrag={false}
-            selectionMode={SelectionMode.Partial}
-            panOnDrag={[0, 2]}
+            panOnDrag={true}
             fitView
             fitViewOptions={{ padding: 0.2, minZoom: 0.3 }}
             style={{ background: '#030712' }}
