@@ -37,7 +37,9 @@
       "Bash(git -C '~/Developer/pulson-canvas' commit -m 'feat: drag image from Finder/desktop onto canvas creates ImageNode *)",
       "Bash(git -C '~/Developer/pulson-canvas' commit -m 'fix: use CSS custom property for handle opacity to beat cascade order *)",
       "Bash(sed -i '' 's|<Handle type=\"target\" position={Position.Top} id=\"top-target\" />}|<Handle type=\"target\" position={Position.Top} id=\"top-target\" />|' /Users/johnnywon/Developer/pulson-canvas/src/nodes/VectorNode.tsx /Users/johnnywon/Developer/pulson-canvas/src/nodes/ImageNode.tsx /Users/johnnywon/Developer/pulson-canvas/src/nodes/WebsiteNode.tsx)",
-      "Bash(sed -i '' 's|<Handle type=\"source\" position={Position.Bottom} id=\"bottom-source\" />}|<Handle type=\"source\" position={Position.Bottom} id=\"bottom-source\" />|' /Users/johnnywon/Developer/pulson-canvas/src/nodes/VectorNode.tsx /Users/johnnywon/Developer/pulson-canvas/src/nodes/ImageNode.tsx /Users/johnnywon/Developer/pulson-canvas/src/nodes/WebsiteNode.tsx)"
+      "Bash(sed -i '' 's|<Handle type=\"source\" position={Position.Bottom} id=\"bottom-source\" />}|<Handle type=\"source\" position={Position.Bottom} id=\"bottom-source\" />|' /Users/johnnywon/Developer/pulson-canvas/src/nodes/VectorNode.tsx /Users/johnnywon/Developer/pulson-canvas/src/nodes/ImageNode.tsx /Users/johnnywon/Developer/pulson-canvas/src/nodes/WebsiteNode.tsx)",
+      "Bash(git *)",
+      "Bash(ssh *)"
     ]
   }
 }
