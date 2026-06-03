@@ -118,7 +118,7 @@ export function LabeledEdge({
                 userSelect: 'none',
                 whiteSpace: 'nowrap',
               }}
-              onDoubleClick={() => setEditing(true)}
+              onDoubleClick={(e) => { e.stopPropagation(); setEditing(true) }}
             >
               {label as string}
             </span>
@@ -134,7 +134,7 @@ export function LabeledEdge({
                 userSelect: 'none',
                 whiteSpace: 'nowrap',
               }}
-              onDoubleClick={() => setEditing(true)}
+              onDoubleClick={(e) => { e.stopPropagation(); setEditing(true) }}
             >
               + label
             </span>

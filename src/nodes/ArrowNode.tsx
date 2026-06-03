@@ -23,7 +23,11 @@ export function ArrowNode({ id, data, selected }: NodeProps) {
   const headY = d.headY ?? 30
   const color = d.color ?? '#e5e7eb'
 
-  const dragRef = useRef<{ which: 'tail' | 'head'; lastX: number; lastY: number } | null>(null)
+  const dragRef = useRef<{
+    which: 'tail' | 'head'
+    startX: number; startY: number
+    originX: number; originY: number
+  } | null>(null)
 
   const midX = (tailX + headX) / 2
   const midY = (tailY + headY) / 2
@@ -31,20 +35,24 @@ export function ArrowNode({ id, data, selected }: NodeProps) {
   const onHandlePointerDown = (e: React.PointerEvent, which: 'tail' | 'head') => {
     e.stopPropagation()
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-    dragRef.current = { which, lastX: e.clientX, lastY: e.clientY }
+    dragRef.current = {
+      which,
+      startX: e.clientX, startY: e.clientY,
+      originX: which === 'tail' ? tailX : headX,
+      originY: which === 'tail' ? tailY : headY,
+    }
   }
 
   const onHandlePointerMove = (e: React.PointerEvent) => {
     if (!dragRef.current) return
     const { zoom } = getViewport()
-    const dx = (e.clientX - dragRef.current.lastX) / zoom
-    const dy = (e.clientY - dragRef.current.lastY) / zoom
-    dragRef.current = { ...dragRef.current, lastX: e.clientX, lastY: e.clientY }
+    const totalDX = (e.clientX - dragRef.current.startX) / zoom
+    const totalDY = (e.clientY - dragRef.current.startY) / zoom
 
     if (dragRef.current.which === 'tail') {
-      updateNodeData(id, { tailX: tailX + dx, tailY: tailY + dy })
+      updateNodeData(id, { tailX: dragRef.current.originX + totalDX, tailY: dragRef.current.originY + totalDY })
     } else {
-      updateNodeData(id, { headX: headX + dx, headY: headY + dy })
+      updateNodeData(id, { headX: dragRef.current.originX + totalDX, headY: dragRef.current.originY + totalDY })
     }
   }
 

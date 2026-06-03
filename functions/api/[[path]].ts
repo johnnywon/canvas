@@ -416,7 +416,7 @@ app.post('/api/comments', async (c) => {
       }),
     })
     const result = await anthropicRes.json() as { content: Array<{ text: string }> }
-    const translation = result.content[0]?.text ?? ''
+    const translation = result.content[0]?.text || null
     en_text = original_lang === 'en' ? text : translation
     ko_text = original_lang === 'ko' ? text : translation
   } catch {
@@ -507,8 +507,9 @@ app.post('/api/agent', async (c) => {
     }),
   })
 
-  const data = await res.json() as { content: Array<{ type: string; text: string }> }
-  const reply = data.content.find(b => b.type === 'text')?.text ?? ''
+  if (!res.ok) return c.json({ reply: '' }, 502)
+  const data = await res.json() as { content?: Array<{ type: string; text: string }> }
+  const reply = (data.content ?? []).find(b => b.type === 'text')?.text ?? ''
   return c.json({ reply })
 })
 

@@ -163,7 +163,7 @@ export function AgentBar({ canvasId, currentNodes, currentEdges, onAddContent }:
     } finally {
       setLoading(false)
     }
-  }, [input, imageAttachment, loading, messages, canvasId, onAddContent])
+  }, [input, imageAttachment, loading, messages, canvasId, currentNodes, currentEdges, onAddContent])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }

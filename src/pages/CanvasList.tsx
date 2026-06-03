@@ -62,6 +62,7 @@ export function CanvasList() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: 'Untitled Canvas' }),
       })
+      if (!res.ok) return
       const canvas = await res.json() as Canvas
       navigate(`/canvas/${canvas.id}`)
     } finally {
@@ -70,7 +71,8 @@ export function CanvasList() {
   }, [navigate])
 
   const deleteCanvas = useCallback(async (id: string) => {
-    await fetch(`/api/canvases/${id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/canvases/${id}`, { method: 'DELETE' })
+    if (!res.ok) { setConfirming(null); return }
     setCanvases((cs) => cs.filter((c) => c.id !== id))
     setConfirming(null)
   }, [])

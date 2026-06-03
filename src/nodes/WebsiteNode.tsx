@@ -60,7 +60,7 @@ export function WebsiteNode({ id, data, selected }: NodeProps) {
   }
 
   const handleRefresh = () => {
-    if (!d.url) return
+    if (!d.url || userRole === 'viewer') return
     updateNodeData(id, { embed_status: 'pending', screenshot_url: undefined })
   }
 
@@ -100,8 +100,8 @@ export function WebsiteNode({ id, data, selected }: NodeProps) {
         lineStyle={{ borderColor: '#10b981', borderWidth: 1.5 }}
       />
 
-      <Handle type="target" position={Position.Left} />
-      <Handle type="target" position={Position.Top} id="top-target" />
+      <Handle type="source" position={Position.Left} />
+      <Handle type="source" position={Position.Top} id="top-target" />
 
       {userRole !== 'viewer' && <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} />}
 

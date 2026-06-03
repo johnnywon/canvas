@@ -41,7 +41,7 @@ export function ImageNode({ id, data, selected }: NodeProps) {
         setUploading(false)
       }
     },
-    [id, updateNodeData],
+    [id, updateNodeData, userRole],
   )
 
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragOver(true) }
@@ -92,8 +92,8 @@ export function ImageNode({ id, data, selected }: NodeProps) {
       }}
       onClick={() => { if (!nodeData.imageUrl) fileInputRef.current?.click() }}
     >
-      <Handle type="target" position={Position.Left} />
-      <Handle type="target" position={Position.Top} id="top-target" />
+      <Handle type="source" position={Position.Left} />
+      <Handle type="source" position={Position.Top} id="top-target" />
 
       {userRole !== 'viewer' && <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} />}
 
@@ -108,26 +108,28 @@ export function ImageNode({ id, data, selected }: NodeProps) {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           />
-          <button
-            className="nodrag nopan"
-            onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click() }}
-            style={{
-              position: 'absolute',
-              top: 8,
-              right: 8,
-              background: 'rgba(0,0,0,0.6)',
-              border: '1px solid rgba(255,255,255,0.15)',
-              borderRadius: 6,
-              color: '#9ca3af',
-              fontSize: 11,
-              padding: '3px 8px',
-              cursor: 'pointer',
-              opacity: selected ? 1 : 0,
-              transition: 'opacity 0.15s ease',
-            }}
-          >
-            Replace
-          </button>
+          {userRole !== 'viewer' && (
+            <button
+              className="nodrag nopan"
+              onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click() }}
+              style={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                background: 'rgba(0,0,0,0.6)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                borderRadius: 6,
+                color: '#9ca3af',
+                fontSize: 11,
+                padding: '3px 8px',
+                cursor: 'pointer',
+                opacity: selected ? 1 : 0,
+                transition: 'opacity 0.15s ease',
+              }}
+            >
+              Replace
+            </button>
+          )}
           {/* Comment button */}
           <button
             className="nodrag nopan"

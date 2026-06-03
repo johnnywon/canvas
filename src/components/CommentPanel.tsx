@@ -17,7 +17,7 @@ function formatTime(iso: string) {
 }
 
 export function CommentPanel() {
-  const { canvasId, preferredLang, activeThread, closeThread, addCommentedId, deleteNode, currentUserEmail } = useContext(CanvasContext)
+  const { canvasId, preferredLang, activeThread, closeThread, addCommentedId, deleteNode, currentUserEmail, userRole } = useContext(CanvasContext)
   const [comments, setComments] = useState<Comment[]>([])
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -212,7 +212,7 @@ export function CommentPanel() {
       </div>
 
       {/* Sticky delete section */}
-      {activeThread?.nodeType === 'sticky_comment' && (
+      {activeThread?.nodeType === 'sticky_comment' && userRole !== 'viewer' && (
         <div style={{ padding: '10px 16px', borderTop: '1px solid #1f2937', flexShrink: 0 }}>
           {!confirmDelete ? (
             <button

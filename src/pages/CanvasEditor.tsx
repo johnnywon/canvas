@@ -6,6 +6,7 @@ import {
   addEdge,
   Background,
   BackgroundVariant,
+  ConnectionMode,
   Controls,
   ControlButton,
   MiniMap,
@@ -88,7 +89,7 @@ function toFlowNode(n: DBNode): Node {
     data: (typeof n.data === 'string' ? JSON.parse(n.data) : n.data) as Record<string, unknown>,
     ...(n.width != null ? { width: n.width } : {}),
     ...(n.height != null ? { height: n.height } : {}),
-    ...(n.type === 'arrow_anchor' ? { zIndex: 100 } : {}),
+    ...((n.type === 'arrow_anchor' || n.type === 'arrow') ? { zIndex: 100 } : {}),
   }
 }
 
@@ -221,8 +222,13 @@ function CanvasEditorInner() {
           data.nodes.map((n: DBNode) => [n.id, n.type])
         )
         setCommentedIds(new Set(data.commentedIds ?? []))
-        setNodes(data.nodes.map(toFlowNode))
-        setEdges(data.edges.map((e: DBEdge) => toFlowEdge(e, nodeTypeMap)))
+        const loadedNodes = data.nodes.map(toFlowNode)
+        const loadedEdges = data.edges.map((e: DBEdge) => toFlowEdge(e, nodeTypeMap))
+        setNodes(loadedNodes)
+        setEdges(loadedEdges)
+        // Seed history with the initial loaded state so users can always undo their first action
+        historyRef.current = [{ nodes: loadedNodes, edges: loadedEdges }]
+        historyIndexRef.current = 0
         requestAnimationFrame(() => { isLoadedRef.current = true })
       })
       .catch(() => navigate('/home'))
@@ -261,6 +267,7 @@ function CanvasEditorInner() {
           }),
         })
         if (res.status === 403) { setSaveStatus('readonly'); return }
+        if (!res.ok) { setSaveStatus('error'); return }
         setSaveStatus('saved')
       } catch {
         setSaveStatus('error')
@@ -300,7 +307,7 @@ function CanvasEditorInner() {
       const pos = screenToFlowPosition({ x: e.clientX, y: e.clientY })
       const nodeId = crypto.randomUUID()
       setNodes((nds) => [...nds, { id: nodeId, type: 'sticky_comment', position: pos, data: {} }])
-      openThread('node', nodeId)
+      openThread('node', nodeId, 'sticky_comment')
     },
     [screenToFlowPosition, setNodes, openThread, isViewer],
   )
@@ -431,6 +438,13 @@ function CanvasEditorInner() {
     return () => window.removeEventListener('beforeunload', handler)
   }, [saveNow])
 
+  // Clear drag overlay whenever any drop completes (including drops caught by child nodes)
+  useEffect(() => {
+    const handler = () => setCanvasDragOver(false)
+    window.addEventListener('drop', handler)
+    return () => window.removeEventListener('drop', handler)
+  }, [])
+
   // ── Canvas-level image drop → creates ImageNode ───────────────────────────
   const handleCanvasDragOver = useCallback((e: React.DragEvent) => {
     if (!e.dataTransfer.types.includes('Files')) return
@@ -518,6 +532,7 @@ function CanvasEditorInner() {
   useEffect(() => {
     const handler = async (e: ClipboardEvent) => {
       const target = e.target as HTMLElement
+      if (isViewer) return
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
       const selectedImg = nodes.find(n => n.type === 'image' && n.selected)
       if (!selectedImg) return
@@ -541,7 +556,7 @@ function CanvasEditorInner() {
     }
     window.addEventListener('paste', handler)
     return () => window.removeEventListener('paste', handler)
-  }, [nodes, setNodes])
+  }, [nodes, setNodes, isViewer])
 
   // ── Keyboard shortcuts ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -557,6 +572,14 @@ function CanvasEditorInner() {
         e.preventDefault(); redo(); return
       }
 
+      // Escape: always close panels regardless of role or focus state
+      if (e.key === 'Escape') {
+        closeThread()
+        setShareOpen(false)
+        setEditingName(false)
+        return
+      }
+
       if (inInput || isViewer) return
 
       // Node add shortcuts
@@ -569,12 +592,6 @@ function CanvasEditorInner() {
         const nodeId = crypto.randomUUID()
         setNodes(nds => [...nds, { id: nodeId, type: 'sticky_comment', position: { x: 200 + Math.random() * 400, y: 150 + Math.random() * 250 }, data: {} }])
         openThread('node', nodeId, 'sticky_comment')
-      }
-      // Escape: close panels
-      if (e.key === 'Escape') {
-        closeThread()
-        setShareOpen(false)
-        setEditingName(false)
       }
     }
     window.addEventListener('keydown', handler)
@@ -612,7 +629,10 @@ function CanvasEditorInner() {
 
       return result
     })
-    setEdges(existing => [...existing, ...newEdges])
+    setEdges(existing => {
+      const existingIds = new Set(existing.map(e => e.id))
+      return [...existing, ...newEdges.filter(e => !existingIds.has(e.id))]
+    })
   }, [setNodes, setEdges])
 
   // ── Status display ─────────────────────────────────────────────────────────
@@ -760,7 +780,14 @@ function CanvasEditorInner() {
           onDrop={handleCanvasDrop}
           onDoubleClick={(e) => {
             const t = e.target as HTMLElement
-            if (t.closest('.react-flow__node') || t.closest('.react-flow__edge')) return
+            if (
+              t.closest('.react-flow__node') ||
+              t.closest('.react-flow__edge') ||
+              t.closest('.react-flow__panel') ||
+              t.tagName === 'INPUT' ||
+              t.tagName === 'TEXTAREA' ||
+              (t as HTMLElement).isContentEditable
+            ) return
             onPaneDoubleClick(e)
           }}
         >
@@ -784,6 +811,7 @@ function CanvasEditorInner() {
             multiSelectionKeyCode="Shift"
             selectionKeyCode="Meta"
             panOnDrag={true}
+            connectionMode={ConnectionMode.Loose}
             fitView
             fitViewOptions={{ padding: 0.2, minZoom: 0.3 }}
             style={{ background: '#030712' }}

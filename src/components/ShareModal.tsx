@@ -41,10 +41,11 @@ export function ShareModal({ canvasId, canvasName, ownerEmail, onClose }: Props)
   }
 
   const handleRemove = async (memberEmail: string) => {
-    setMembers((ms) => ms.filter((m) => m.user_email !== memberEmail))
-    await fetch(`/api/canvases/${canvasId}/members/${encodeURIComponent(memberEmail)}`, {
+    const res = await fetch(`/api/canvases/${canvasId}/members/${encodeURIComponent(memberEmail)}`, {
       method: 'DELETE',
     })
+    if (!res.ok) return
+    setMembers((ms) => ms.filter((m) => m.user_email !== memberEmail))
   }
 
   const handleAdd = async (e: React.FormEvent) => {

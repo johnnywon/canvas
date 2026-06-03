@@ -204,13 +204,12 @@ export function VectorNode({ id, data, selected }: NodeProps) {
           backgroundColor: colorPreset.accent,
           border: '2px solid #030712',
           borderRadius: 3,
-          zIndex: 10,
         }}
         lineStyle={{ borderColor: colorPreset.accent, borderWidth: 1.5 }}
       />
 
-      <Handle type="target" position={Position.Left} />
-      <Handle type="target" position={Position.Top} id="top-target" />
+      <Handle type="source" position={Position.Left} />
+      <Handle type="source" position={Position.Top} id="top-target" />
 
       {userRole !== 'viewer' && (
         <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} />
