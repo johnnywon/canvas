@@ -100,8 +100,8 @@ export function WebsiteNode({ id, data, selected }: NodeProps) {
         lineStyle={{ borderColor: '#10b981', borderWidth: 1.5 }}
       />
 
-      <Handle type="source" position={Position.Left} />
-      <Handle type="source" position={Position.Top} id="top-target" />
+      <Handle type="source" position={Position.Left} id="left" />
+      <Handle type="source" position={Position.Top} id="top" />
 
       {userRole !== 'viewer' && <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} />}
 
@@ -248,8 +248,8 @@ export function WebsiteNode({ id, data, selected }: NodeProps) {
         </button>
       </div>
 
-      <Handle type="source" position={Position.Right} />
-      <Handle type="source" position={Position.Bottom} id="bottom-source" />
+      <Handle type="source" position={Position.Right} id="right" />
+      <Handle type="source" position={Position.Bottom} id="bottom" />
     </div>
   )
 }

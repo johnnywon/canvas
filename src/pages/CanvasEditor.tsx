@@ -3,20 +3,19 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   ReactFlow,
   ReactFlowProvider,
-  addEdge,
   Background,
   BackgroundVariant,
-  ConnectionMode,
   Controls,
   ControlButton,
   MiniMap,
   useNodesState,
   useEdgesState,
   useReactFlow,
-  MarkerType,
-  type OnConnect,
+  addEdge,
+  ConnectionMode,
   type Node,
   type Edge,
+  type Connection,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 
@@ -26,31 +25,22 @@ import { ImageNode } from '../nodes/ImageNode'
 import { WebsiteNode } from '../nodes/WebsiteNode'
 import { StickyCommentNode } from '../nodes/StickyCommentNode'
 import { ArrowAnchorNode } from '../nodes/ArrowAnchorNode'
-import { ArrowNode } from '../nodes/ArrowNode'
-import { LabeledEdge } from '../edges/LabeledEdge'
 import { ArrowEdge } from '../edges/ArrowEdge'
 import { CommentPanel } from '../components/CommentPanel'
 import { ShareModal } from '../components/ShareModal'
 import { AgentBar } from '../components/AgentBar'
-import { SortGridIcon, LockIcon, UnlockIcon, VectorToolIcon, ImageToolIcon, WebsiteToolIcon, ArrowToolIcon, StickyToolIcon } from '../components/icons'
+import { SortGridIcon, LockIcon, UnlockIcon, VectorToolIcon, ImageToolIcon, WebsiteToolIcon, StickyToolIcon } from '../components/icons'
 
 const nodeTypes = {
   vector: VectorNode,
   image: ImageNode,
   website: WebsiteNode,
   sticky_comment: StickyCommentNode,
-  arrow_anchor: ArrowAnchorNode,  // legacy — existing canvases with old arrow system
-  arrow: ArrowNode,
+  arrow_anchor: ArrowAnchorNode,
 }
 
 const edgeTypes = {
-  labeled: LabeledEdge,
   arrow: ArrowEdge,
-}
-
-const defaultEdgeOptions = {
-  type: 'labeled',
-  markerEnd: { type: MarkerType.ArrowClosed, color: '#374151' },
 }
 
 type CanvasData = {
@@ -75,8 +65,11 @@ type DBNode = {
 type DBEdge = {
   id: string
   source: string
+  source_handle: string | null
   target: string
-  label: string | null
+  target_handle: string | null
+  type: string
+  data: string | Record<string, unknown>
 }
 
 type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error' | 'readonly'
@@ -89,34 +82,6 @@ function toFlowNode(n: DBNode): Node {
     data: (typeof n.data === 'string' ? JSON.parse(n.data) : n.data) as Record<string, unknown>,
     ...(n.width != null ? { width: n.width } : {}),
     ...(n.height != null ? { height: n.height } : {}),
-    ...((n.type === 'arrow_anchor' || n.type === 'arrow') ? { zIndex: 100 } : {}),
-  }
-}
-
-function toFlowEdge(e: DBEdge, nodeTypeMap: Map<string, string>): Edge {
-  const isArrow =
-    nodeTypeMap.get(e.source) === 'arrow_anchor' ||
-    nodeTypeMap.get(e.target) === 'arrow_anchor'
-  if (isArrow) {
-    const color = e.label?.startsWith('#') ? e.label : '#e5e7eb'
-    return {
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      type: 'arrow',
-      zIndex: 99,
-      data: { color },
-      style: { stroke: color, strokeWidth: 3 },
-      markerEnd: { type: MarkerType.ArrowClosed, width: 22, height: 22, color },
-    }
-  }
-  return {
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    type: 'labeled',
-    label: e.label ?? undefined,
-    markerEnd: { type: MarkerType.ArrowClosed, color: '#374151' },
   }
 }
 
@@ -218,12 +183,19 @@ function CanvasEditorInner() {
         setCurrentUserEmail(me.email)
         setCanvas(data.canvas)
         setUserRole((data.canvas.userRole as UserRole) ?? 'viewer')
-        const nodeTypeMap = new Map<string, string>(
-          data.nodes.map((n: DBNode) => [n.id, n.type])
-        )
         setCommentedIds(new Set(data.commentedIds ?? []))
-        const loadedNodes = data.nodes.map(toFlowNode)
-        const loadedEdges = data.edges.map((e: DBEdge) => toFlowEdge(e, nodeTypeMap))
+        const loadedNodes = data.nodes
+          .filter((n: DBNode) => n.type !== 'arrow')  // strip old-style free-floating ArrowNode
+          .map(toFlowNode)
+        const loadedEdges: Edge[] = (data.edges ?? []).map((e: DBEdge) => ({
+          id: e.id,
+          source: e.source,
+          sourceHandle: e.source_handle ?? null,
+          target: e.target,
+          targetHandle: e.target_handle ?? null,
+          type: e.type ?? 'arrow',
+          data: typeof e.data === 'string' ? JSON.parse(e.data) : (e.data ?? {}),
+        }))
         setNodes(loadedNodes)
         setEdges(loadedEdges)
         // Seed history with the initial loaded state so users can always undo their first action
@@ -258,11 +230,11 @@ function CanvasEditorInner() {
             edges: edges.map((e) => ({
               id: e.id,
               source: e.source,
+              source_handle: e.sourceHandle ?? null,
               target: e.target,
-              // Arrow edges: store color in label column (arrow edges have no text label)
-              label: e.type === 'arrow'
-                ? ((e.data as { color?: string } | undefined)?.color ?? null)
-                : (typeof e.label === 'string' ? e.label : null),
+              target_handle: e.targetHandle ?? null,
+              type: e.type ?? 'arrow',
+              data: e.data ?? {},
             })),
           }),
         })
@@ -274,15 +246,6 @@ function CanvasEditorInner() {
       }
     }, 500)
   }, [nodes, edges, canvasId, isViewer])
-
-  // ── Edge connect ───────────────────────────────────────────────────────────
-  const onConnect: OnConnect = useCallback(
-    (connection) =>
-      setEdges((eds) =>
-        addEdge({ ...connection, type: 'labeled', markerEnd: { type: MarkerType.ArrowClosed, color: '#374151' } }, eds)
-      ),
-    [setEdges],
-  )
 
   // ── Add node ───────────────────────────────────────────────────────────────
   const addNode = useCallback(
@@ -299,6 +262,67 @@ function CanvasEditorInner() {
     },
     [setNodes],
   )
+
+  // ── Edge connections ───────────────────────────────────────────────────────
+  const onConnect = useCallback((connection: Connection) => {
+    setEdges(eds => addEdge({
+      ...connection,
+      type: 'arrow',
+      id: crypto.randomUUID(),
+      data: { color: '#e5e7eb' },
+    }, eds))
+  }, [setEdges])
+
+  const onConnectEnd = useCallback((
+    event: MouseEvent | TouchEvent,
+    connectionState: {
+      isValid: boolean | null
+      fromNode: { id: string } | null
+      fromHandle: { id?: string | null } | null
+    },
+  ) => {
+    if (connectionState.isValid || !connectionState.fromNode) return
+    const { clientX, clientY } = 'changedTouches' in event
+      ? event.changedTouches[0]
+      : event as MouseEvent
+    const position = screenToFlowPosition({ x: clientX, y: clientY })
+    const anchorId = crypto.randomUUID()
+    const edgeId = crypto.randomUUID()
+    const color = '#e5e7eb'
+    setNodes(nds => [...nds, {
+      id: anchorId,
+      type: 'arrow_anchor',
+      position: { x: position.x - 5, y: position.y - 5 },
+      data: { color },
+    }])
+    setEdges(eds => [...eds, {
+      id: edgeId,
+      source: connectionState.fromNode!.id,
+      sourceHandle: connectionState.fromHandle?.id ?? null,
+      target: anchorId,
+      targetHandle: 'target',
+      type: 'arrow',
+      data: { color, anchorId },
+    }])
+  }, [screenToFlowPosition, setNodes, setEdges])
+
+  // Cascade: deleting an anchor node removes its edge
+  const handleNodesDelete = useCallback((deleted: Node[]) => {
+    const anchorIds = new Set(deleted.filter(n => n.type === 'arrow_anchor').map(n => n.id))
+    if (anchorIds.size > 0) {
+      setEdges(eds => eds.filter(e => !anchorIds.has(e.target)))
+    }
+  }, [setEdges])
+
+  // Cascade: deleting an edge removes its anchor node (if floating)
+  const handleEdgesDelete = useCallback((deleted: Edge[]) => {
+    const anchorIds = deleted
+      .filter(e => e.data?.anchorId)
+      .map(e => e.data!.anchorId as string)
+    if (anchorIds.length > 0) {
+      setNodes(nds => nds.filter(n => !anchorIds.includes(n.id)))
+    }
+  }, [setNodes])
 
   // ── Double-click canvas → drop sticky comment ──────────────────────────────
   const onPaneDoubleClick = useCallback(
@@ -326,17 +350,18 @@ function CanvasEditorInner() {
 
   const sortNodes = useCallback(() => {
     setNodes((nds) => {
-      if (!nds.length) return nds
+      const sortable = nds.filter(n => n.type !== 'arrow_anchor')
+      const anchors = nds.filter(n => n.type === 'arrow_anchor')
+      if (!sortable.length) return nds
       const GAP = 48, PAD = 60
-      const cols = Math.max(1, Math.round(Math.sqrt(nds.length * 1.2)))
-      // Sort by current canvas position so the visual order is preserved
-      const sorted = [...nds].sort((a, b) =>
+      const cols = Math.max(1, Math.round(Math.sqrt(sortable.length * 1.2)))
+      const sorted = [...sortable].sort((a, b) =>
         a.position.y !== b.position.y
           ? a.position.y - b.position.y
           : a.position.x - b.position.x
       )
       let curX = PAD, curY = PAD, rowMaxH = 0, col = 0
-      return sorted.map((node) => {
+      const positioned = sorted.map((node) => {
         const w = node.measured?.width ?? 220
         const h = node.measured?.height ?? 160
         if (col > 0 && col >= cols) {
@@ -348,48 +373,9 @@ function CanvasEditorInner() {
         col++
         return { ...node, position: pos }
       })
+      return [...positioned, ...anchors]
     })
   }, [setNodes])
-
-  const addArrow = useCallback(() => {
-    setNodes((nds) => [
-      ...nds,
-      {
-        id: crypto.randomUUID(),
-        type: 'arrow',
-        position: { x: 150 + Math.random() * 250, y: 150 + Math.random() * 180 },
-        data: { tailX: 10, tailY: 30, headX: 290, headY: 30, color: '#e5e7eb' },
-        width: 300,
-        height: 60,
-        zIndex: 100,
-      },
-    ])
-  }, [setNodes])
-
-  const onEdgesDelete = useCallback(
-    (deletedEdges: Edge[]) => {
-      const anchorIds = new Set(
-        deletedEdges
-          .filter((e) => e.type === 'arrow')
-          .flatMap((e) => [e.source, e.target])
-      )
-      if (anchorIds.size) setNodes((nds) => nds.filter((n) => !anchorIds.has(n.id)))
-    },
-    [setNodes],
-  )
-
-  const onEdgeClick = useCallback(
-    (_e: React.MouseEvent, edge: Edge) => {
-      if (edge.type !== 'arrow') return
-      // Select both anchor nodes so multi-drag moves the whole arrow
-      setNodes((nds) =>
-        nds.map((n) =>
-          n.id === edge.source || n.id === edge.target ? { ...n, selected: true } : n
-        )
-      )
-    },
-    [setNodes],
-  )
 
   const onNodeClick = useCallback(
     (_e: React.MouseEvent, node: Node) => {
@@ -416,10 +402,10 @@ function CanvasEditorInner() {
         data: n.data,
       })),
       edges: edgesRef.current.map((e) => ({
-        id: e.id, source: e.source, target: e.target,
-        label: e.type === 'arrow'
-          ? ((e.data as { color?: string } | undefined)?.color ?? null)
-          : (typeof e.label === 'string' ? e.label : null),
+        id: e.id,
+        source: e.source, source_handle: e.sourceHandle ?? null,
+        target: e.target, target_handle: e.targetHandle ?? null,
+        type: e.type ?? 'arrow', data: e.data ?? {},
       })),
     })
     // keepalive survives tab/window close
@@ -586,7 +572,6 @@ function CanvasEditorInner() {
       if (e.key === 'v' || e.key === 'V') { e.preventDefault(); addNode('vector') }
       if (e.key === 'i' || e.key === 'I') { e.preventDefault(); addNode('image') }
       if (e.key === 'w' || e.key === 'W') { e.preventDefault(); addNode('website') }
-      if (e.key === 'a' || e.key === 'A') { e.preventDefault(); addArrow() }
       if (e.key === 's' || e.key === 'S') {
         e.preventDefault()
         const nodeId = crypto.randomUUID()
@@ -596,11 +581,11 @@ function CanvasEditorInner() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [undo, redo, addNode, addArrow, setNodes, openThread, closeThread, isViewer])
+  }, [undo, redo, addNode, setNodes, openThread, closeThread, isViewer])
 
   // ── Agent: reposition existing nodes OR add new ones ──────────────────────
-  const addAgentContent = useCallback((newNodes: Node[], newEdges: Edge[]) => {
-    if (!newNodes.length && !newEdges.length) return
+  const addAgentContent = useCallback((newNodes: Node[]) => {
+    if (!newNodes.length) return
     setNodes(existing => {
       const existingIdSet = new Set(existing.map(n => n.id))
       const updates = newNodes.filter(n => existingIdSet.has(n.id))   // reposition
@@ -629,11 +614,7 @@ function CanvasEditorInner() {
 
       return result
     })
-    setEdges(existing => {
-      const existingIds = new Set(existing.map(e => e.id))
-      return [...existing, ...newEdges.filter(e => !existingIds.has(e.id))]
-    })
-  }, [setNodes, setEdges])
+  }, [setNodes])
 
   // ── Status display ─────────────────────────────────────────────────────────
   const statusLabel: Record<SaveStatus, string> = {
@@ -754,7 +735,6 @@ function CanvasEditorInner() {
                 <IconToolButton onClick={() => addNode('vector')} icon={<VectorToolIcon />} labelEn="Vector" labelKo="벡터" shortcut="V" color="#6366f1" />
                 <IconToolButton onClick={() => addNode('image')} icon={<ImageToolIcon />} labelEn="Image" labelKo="이미지" shortcut="I" color="#0ea5e9" />
                 <IconToolButton onClick={() => addNode('website')} icon={<WebsiteToolIcon />} labelEn="Website" labelKo="웹사이트" shortcut="W" color="#10b981" />
-                <IconToolButton onClick={addArrow} icon={<ArrowToolIcon />} labelEn="Arrow" labelKo="화살표" shortcut="A" color="#94a3b8" />
                 <IconToolButton
                   onClick={() => {
                     const nodeId = crypto.randomUUID()
@@ -796,22 +776,23 @@ function CanvasEditorInner() {
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
-            onConnect={isViewer ? undefined : onConnect}
-            onEdgeClick={onEdgeClick}
-            onEdgesDelete={onEdgesDelete}
+            onConnect={onConnect}
+            onConnectEnd={onConnectEnd}
+            onNodesDelete={handleNodesDelete}
+            onEdgesDelete={handleEdgesDelete}
             onPaneClick={() => setActiveThread(null)}
             onNodeClick={onNodeClick}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
-            defaultEdgeOptions={defaultEdgeOptions}
+            connectionMode={ConnectionMode.Loose}
             nodesDraggable={!isViewer && isInteractive}
             nodesConnectable={!isViewer && isInteractive}
+            edgesReconnectable={!isViewer && isInteractive}
             deleteKeyCode={isViewer || !isInteractive ? null : 'Backspace'}
             elementsSelectable={true}
             multiSelectionKeyCode="Shift"
             selectionKeyCode="Meta"
             panOnDrag={true}
-            connectionMode={ConnectionMode.Loose}
             fitView
             fitViewOptions={{ padding: 0.2, minZoom: 0.3 }}
             style={{ background: '#030712' }}
@@ -885,7 +866,6 @@ function CanvasEditorInner() {
             <AgentBar
               canvasId={canvasId}
               currentNodes={nodes}
-              currentEdges={edges}
               onAddContent={addAgentContent}
             />
           )}

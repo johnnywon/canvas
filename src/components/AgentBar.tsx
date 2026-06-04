@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { MarkerType, type Edge, type Node } from '@xyflow/react'
+import { type Node } from '@xyflow/react'
 
-function buildCanvasContext(nodes: Node[], edges: Edge[]): string {
+function buildCanvasContext(nodes: Node[]): string {
   if (!nodes.length) return ''
   const ns = nodes.slice(0, 60).map(n => {
     const d = n.data as Record<string, unknown>
     const label = (d?.label as string) ?? (d?.url as string) ?? n.type
     return `  {"id":"${n.id}","type":"${n.type}","label":"${label}","x":${Math.round(n.position.x)},"y":${Math.round(n.position.y)},"w":${Math.round((n.measured?.width ?? (n.width as number | undefined) ?? 180))},"h":${Math.round((n.measured?.height ?? (n.height as number | undefined) ?? 70))}}`
   }).join(',\n')
-  const es = edges.slice(0, 80).map(e => `  {"from":"${e.source}","to":"${e.target}"}`).join(',\n')
-  return `[CANVAS]\nNodes:\n${ns}\nEdges:\n${es}\n[/CANVAS]\n\n`
+  return `[CANVAS]\nNodes:\n${ns}\n[/CANVAS]\n\n`
 }
 
 type AgentMsg = {
@@ -22,14 +21,14 @@ type AgentMsg = {
   canvasUpdated?: boolean
 }
 
-type CanvasBlock = { nodes: Node[]; edges: Edge[] }
+type CanvasBlock = { nodes: Node[] }
 
 function parseCanvasBlock(text: string): CanvasBlock | null {
   const match = text.match(/```canvas\n([\s\S]+?)\n```/)
   if (!match) return null
   try {
-    const data = JSON.parse(match[1]) as { nodes?: Node[]; edges?: Edge[] }
-    return { nodes: data.nodes ?? [], edges: data.edges ?? [] }
+    const data = JSON.parse(match[1]) as { nodes?: Node[] }
+    return { nodes: data.nodes ?? [] }
   } catch {
     return null
   }
@@ -42,11 +41,10 @@ function replyDisplay(text: string): string {
 type Props = {
   canvasId: string
   currentNodes: Node[]
-  currentEdges: Edge[]
-  onAddContent: (nodes: Node[], edges: Edge[]) => void
+  onAddContent: (nodes: Node[]) => void
 }
 
-export function AgentBar({ canvasId, currentNodes, currentEdges, onAddContent }: Props) {
+export function AgentBar({ canvasId, currentNodes, onAddContent }: Props) {
   const [messages, setMessages] = useState<AgentMsg[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -109,7 +107,7 @@ export function AgentBar({ canvasId, currentNodes, currentEdges, onAddContent }:
     if (loading) return
 
     // Build API content — always prepend current canvas state so Claude can rearrange
-    const ctx = buildCanvasContext(currentNodes, currentEdges)
+    const ctx = buildCanvasContext(currentNodes)
     const userText = text || 'Create a canvas diagram from this image'
     const apiContent: AgentMsg['content'] = imageAttachment
       ? [
@@ -151,19 +149,14 @@ export function AgentBar({ canvasId, currentNodes, currentEdges, onAddContent }:
       }])
 
       if (block) {
-        const styledEdges = block.edges.map(e => ({
-          ...e,
-          type: 'labeled' as const,
-          markerEnd: { type: MarkerType.ArrowClosed, color: '#374151' },
-        }))
-        onAddContent(block.nodes, styledEdges)
+        onAddContent(block.nodes)
       }
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Error', text: 'Something went wrong. Try again.' }])
     } finally {
       setLoading(false)
     }
-  }, [input, imageAttachment, loading, messages, canvasId, currentNodes, currentEdges, onAddContent])
+  }, [input, imageAttachment, loading, messages, canvasId, currentNodes, onAddContent])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }

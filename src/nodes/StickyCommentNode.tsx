@@ -49,8 +49,10 @@ export function StickyCommentNode({ id, selected }: NodeProps) {
         <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} top={-10} left={-10} />
       )}
 
-      <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
-      <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
+      <Handle type="source" position={Position.Left} id="left" />
+      <Handle type="source" position={Position.Top} id="top" />
+      <Handle type="source" position={Position.Right} id="right" />
+      <Handle type="source" position={Position.Bottom} id="bottom" />
     </div>
   )
 }

@@ -92,8 +92,8 @@ export function ImageNode({ id, data, selected }: NodeProps) {
       }}
       onClick={() => { if (!nodeData.imageUrl) fileInputRef.current?.click() }}
     >
-      <Handle type="source" position={Position.Left} />
-      <Handle type="source" position={Position.Top} id="top-target" />
+      <Handle type="source" position={Position.Left} id="left" />
+      <Handle type="source" position={Position.Top} id="top" />
 
       {userRole !== 'viewer' && <NodeDeleteButton id={id} deleteElements={deleteElements} visible={hovered} />}
 
@@ -181,8 +181,8 @@ export function ImageNode({ id, data, selected }: NodeProps) {
 
       <input ref={fileInputRef} type="file" accept="image/*" className="nodrag nopan" style={{ display: 'none' }} onChange={handleFileChange} />
 
-      <Handle type="source" position={Position.Right} />
-      <Handle type="source" position={Position.Bottom} id="bottom-source" />
+      <Handle type="source" position={Position.Right} id="right" />
+      <Handle type="source" position={Position.Bottom} id="bottom" />
     </div>
   )
 }
