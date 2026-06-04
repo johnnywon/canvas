@@ -87,6 +87,14 @@ export function StickyToolIcon({ size = 16 }: { size?: number }) {
   )
 }
 
+export function TextToolIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 3h10M8 3v10" />
+    </svg>
+  )
+}
+
 export function UnlockIcon({ size = 11 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
