@@ -101,7 +101,7 @@ export function CanvasEditor() {
 function CanvasEditorInner() {
   const { id: canvasId } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { screenToFlowPosition } = useReactFlow()
+  const { screenToFlowPosition, deleteElements } = useReactFlow()
 
   const [canvas, setCanvas] = useState<CanvasData | null>(null)
   const [userRole, setUserRole] = useState<UserRole>('owner')
@@ -146,9 +146,10 @@ function CanvasEditorInner() {
   }, [])
 
   const deleteNode = useCallback((nodeId: string) => {
-    setNodes((nds) => nds.filter((n) => n.id !== nodeId))
+    // Use deleteElements so RF also removes connected edges and fires cascade callbacks
+    deleteElements({ nodes: [{ id: nodeId }] })
     setActiveThread(null)
-  }, [setNodes])
+  }, [deleteElements])
 
   const closeThread = useCallback(() => setActiveThread(null), [])
 
