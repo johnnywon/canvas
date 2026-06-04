@@ -24,18 +24,20 @@ import { VectorNode } from '../nodes/VectorNode'
 import { ImageNode } from '../nodes/ImageNode'
 import { WebsiteNode } from '../nodes/WebsiteNode'
 import { StickyCommentNode } from '../nodes/StickyCommentNode'
+import { TextNode } from '../nodes/TextNode'
 import { ArrowAnchorNode } from '../nodes/ArrowAnchorNode'
 import { ArrowEdge } from '../edges/ArrowEdge'
 import { CommentPanel } from '../components/CommentPanel'
 import { ShareModal } from '../components/ShareModal'
 import { AgentBar } from '../components/AgentBar'
-import { SortGridIcon, LockIcon, UnlockIcon, VectorToolIcon, ImageToolIcon, WebsiteToolIcon, StickyToolIcon } from '../components/icons'
+import { SortGridIcon, LockIcon, UnlockIcon, VectorToolIcon, ImageToolIcon, WebsiteToolIcon, StickyToolIcon, TextToolIcon } from '../components/icons'
 
 const nodeTypes = {
   vector: VectorNode,
   image: ImageNode,
   website: WebsiteNode,
   sticky_comment: StickyCommentNode,
+  text: TextNode,
   arrow_anchor: ArrowAnchorNode,
 }
 
@@ -249,11 +251,12 @@ function CanvasEditorInner() {
 
   // ── Add node ───────────────────────────────────────────────────────────────
   const addNode = useCallback(
-    (type: 'vector' | 'image' | 'website') => {
+    (type: 'vector' | 'image' | 'website' | 'text') => {
       const defaults: Record<string, Record<string, unknown>> = {
         vector: { label: '' },
         image: { imageUrl: undefined },
         website: { url: undefined, embed_status: undefined },
+        text: { autoEdit: true },
       }
       setNodes((nds) => [
         ...nds,
@@ -325,15 +328,19 @@ function CanvasEditorInner() {
   }, [setNodes])
 
   // ── Double-click canvas → drop sticky comment ──────────────────────────────
+  // Double-click empty canvas → text node (Miro-style)
   const onPaneDoubleClick = useCallback(
     (e: React.MouseEvent) => {
       if (isViewer) return
       const pos = screenToFlowPosition({ x: e.clientX, y: e.clientY })
-      const nodeId = crypto.randomUUID()
-      setNodes((nds) => [...nds, { id: nodeId, type: 'sticky_comment', position: pos, data: {} }])
-      openThread('node', nodeId, 'sticky_comment')
+      setNodes((nds) => [...nds, {
+        id: crypto.randomUUID(),
+        type: 'text',
+        position: { x: pos.x - 100, y: pos.y - 16 },
+        data: { autoEdit: true },
+      }])
     },
-    [screenToFlowPosition, setNodes, openThread, isViewer],
+    [screenToFlowPosition, setNodes, isViewer],
   )
 
   const commitRename = useCallback(async () => {
@@ -378,10 +385,10 @@ function CanvasEditorInner() {
   }, [setNodes])
 
   const onNodeClick = useCallback(
-    (_e: React.MouseEvent, node: Node) => {
-      if (node.type === 'sticky_comment') openThread('node', node.id, 'sticky_comment')
+    (_e: React.MouseEvent, _node: Node) => {
+      // sticky_comment threads are now opened via the comment icon inside the node
     },
-    [openThread],
+    [],
   )
 
   // Keep refs current so unload/navigate handlers see the latest data
@@ -566,17 +573,53 @@ function CanvasEditorInner() {
         return
       }
 
+      // Cmd+D: duplicate selected nodes
+      if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
+        e.preventDefault()
+        const selected = nodes.filter(n => n.selected && n.type !== 'arrow_anchor')
+        if (selected.length > 0) {
+          const dupes = selected.map(n => ({
+            ...n,
+            id: crypto.randomUUID(),
+            position: { x: n.position.x + 24, y: n.position.y + 24 },
+            selected: true,
+            data: { ...(n.data as Record<string, unknown>), autoEdit: undefined },
+          }))
+          setNodes(nds => [...nds.map(n => ({ ...n, selected: false })), ...dupes])
+        }
+        return
+      }
+
       if (inInput || isViewer) return
+
+      // Arrow key nudge (1px; Shift = 10px)
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+        const anySelected = nodes.some(n => n.selected)
+        if (anySelected) {
+          e.preventDefault()
+          const step = e.shiftKey ? 10 : 1
+          const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
+          const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
+          setNodes(nds => nds.map(n =>
+            n.selected ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } } : n
+          ))
+        }
+        return
+      }
 
       // Node add shortcuts
       if (e.key === 'v' || e.key === 'V') { e.preventDefault(); addNode('vector') }
       if (e.key === 'i' || e.key === 'I') { e.preventDefault(); addNode('image') }
       if (e.key === 'w' || e.key === 'W') { e.preventDefault(); addNode('website') }
+      if (e.key === 't' || e.key === 'T') { e.preventDefault(); addNode('text') }
       if (e.key === 's' || e.key === 'S') {
         e.preventDefault()
-        const nodeId = crypto.randomUUID()
-        setNodes(nds => [...nds, { id: nodeId, type: 'sticky_comment', position: { x: 200 + Math.random() * 400, y: 150 + Math.random() * 250 }, data: {} }])
-        openThread('node', nodeId, 'sticky_comment')
+        setNodes(nds => [...nds, {
+          id: crypto.randomUUID(),
+          type: 'sticky_comment',
+          position: { x: 200 + Math.random() * 400, y: 150 + Math.random() * 250 },
+          data: { autoEdit: true },
+        }])
       }
     }
     window.addEventListener('keydown', handler)
@@ -735,12 +778,14 @@ function CanvasEditorInner() {
                 <IconToolButton onClick={() => addNode('vector')} icon={<VectorToolIcon />} labelEn="Vector" labelKo="벡터" shortcut="V" color="#6366f1" />
                 <IconToolButton onClick={() => addNode('image')} icon={<ImageToolIcon />} labelEn="Image" labelKo="이미지" shortcut="I" color="#0ea5e9" />
                 <IconToolButton onClick={() => addNode('website')} icon={<WebsiteToolIcon />} labelEn="Website" labelKo="웹사이트" shortcut="W" color="#10b981" />
+                <IconToolButton onClick={() => addNode('text')} icon={<TextToolIcon />} labelEn="Text" labelKo="텍스트" shortcut="T" color="#e5e7eb" />
                 <IconToolButton
-                  onClick={() => {
-                    const nodeId = crypto.randomUUID()
-                    setNodes((nds) => [...nds, { id: nodeId, type: 'sticky_comment', position: { x: 200 + Math.random() * 300, y: 150 + Math.random() * 200 }, data: {} }])
-                    openThread('node', nodeId, 'sticky_comment')
-                  }}
+                  onClick={() => setNodes(nds => [...nds, {
+                    id: crypto.randomUUID(),
+                    type: 'sticky_comment',
+                    position: { x: 200 + Math.random() * 300, y: 150 + Math.random() * 200 },
+                    data: { autoEdit: true },
+                  }])}
                   icon={<StickyToolIcon />}
                   labelEn="Sticky Note"
                   labelKo="스티커"
