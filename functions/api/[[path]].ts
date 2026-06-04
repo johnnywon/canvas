@@ -463,10 +463,10 @@ That is ALL. Do not add explanations, architecture notes, bullet points, tables,
 NODE TYPES:
 - vector: { label, color?: "default"|"indigo"|"sky"|"emerald"|"rose" } — width:180 height:70
 - website: { url, embed_status:"pending" } — width:480 height:360
-- sticky_comment: {} — width:48 height:48
-- arrow: { tailX:10,tailY:30,headX:290,headY:30,color:"#e5e7eb" } — width:300 height:60
+- sticky_comment: { text? } — width:200 height:160
+- text: { text, fontSize?:14|18|24|32|48, color?:"#f3f4f6"|"#fbbf24"|"#60a5fa" } — width:200 height:60
 
-EDGES: { id, source, target }
+EDGES: [] (users draw arrows manually between nodes — do not include edges in output)
 
 LAYOUT:
 - Horizontal flows: left-to-right, x gaps of 220px, center around y=280
@@ -526,4 +526,6 @@ app.post('/api/agent', async (c) => {
 })
 
 export const onRequest: PagesFunction<Bindings> = (ctx) =>
-  app.fetch(ctx.request, ctx.env, ctx)
+  // Cast required: workers-types v4 added `props` to ExecutionContext but EventContext doesn't have it.
+  // Runtime behavior is identical — waitUntil/passThroughOnException are both present.
+  app.fetch(ctx.request, ctx.env, ctx as unknown as ExecutionContext)

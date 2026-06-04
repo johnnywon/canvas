@@ -12,6 +12,7 @@ import {
   useEdgesState,
   useReactFlow,
   addEdge,
+  reconnectEdge,
   ConnectionMode,
   type Node,
   type Edge,
@@ -274,6 +275,10 @@ function CanvasEditorInner() {
       id: crypto.randomUUID(),
       data: { color: '#e5e7eb' },
     }, eds))
+  }, [setEdges])
+
+  const onReconnect = useCallback((oldEdge: Edge, newConnection: Connection) => {
+    setEdges(eds => reconnectEdge(oldEdge, newConnection, eds))
   }, [setEdges])
 
   const onConnectEnd = useCallback((
@@ -823,6 +828,7 @@ function CanvasEditorInner() {
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onConnectEnd={onConnectEnd}
+            onReconnect={onReconnect}
             onNodesDelete={handleNodesDelete}
             onEdgesDelete={handleEdgesDelete}
             onPaneClick={() => setActiveThread(null)}
