@@ -28,20 +28,13 @@ const ctxValue = {
   deleteNode: vi.fn(),
 }
 
-function renderNode(data = {}, selected = false) {
+// RF v12 NodeProps — cast to avoid version-specific prop name differences
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function renderNode(data: Record<string, unknown> = {}, selected = false) {
+  const props = { id: 'node-1', data, selected, type: 'text' } as any
   return render(
     <CanvasContext.Provider value={ctxValue}>
-      <TextNode
-        id="node-1"
-        data={data}
-        selected={selected}
-        xPos={0} yPos={0}
-        zIndex={0}
-        isConnectable={true}
-        dragging={false}
-        type="text"
-        positionAbsoluteX={0} positionAbsoluteY={0}
-      />
+      <TextNode {...props} />
     </CanvasContext.Provider>
   )
 }

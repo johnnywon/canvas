@@ -26,6 +26,10 @@ type EdgeRow = {
   canvas_id: string
   source_node_id: string
   target_node_id: string
+  source_handle: string | null
+  target_handle: string | null
+  type: string
+  data: string
   label: string | null
 }
 
@@ -62,7 +66,11 @@ type SaveNode = {
 type SaveEdge = {
   id: string
   source: string
+  source_handle: string | null
   target: string
+  target_handle: string | null
+  type: string
+  data: unknown
   label?: string | null
 }
 
@@ -144,8 +152,11 @@ app.get('/api/canvases/:id', async (c) => {
     edges: edgesRes.results.map((e) => ({
       id: e.id,
       source: e.source_node_id,
+      source_handle: e.source_handle ?? null,
       target: e.target_node_id,
-      label: e.label ?? null,
+      target_handle: e.target_handle ?? null,
+      type: e.type ?? 'arrow',
+      data: typeof e.data === 'string' ? JSON.parse(e.data) : (e.data ?? {}),
     })),
     commentedIds: commentedRes.results.map((r) => r.parent_id),
   })
@@ -189,7 +200,8 @@ function computeThumbnail(nodes: SaveNode[]): string {
   const minY = Math.min(...ys), maxY = Math.max(...ys) + 160
   const rX = maxX - minX || 1, rY = maxY - minY || 1
   const COLORS: Record<string, string> = {
-    vector: '#6366f1', image: '#0ea5e9', website: '#10b981', sticky_comment: '#fbbf24',
+    vector: '#6366f1', image: '#0ea5e9', website: '#10b981',
+    sticky_comment: '#fbbf24', text: '#e5e7eb',
   }
   return JSON.stringify(
     nodes.slice(0, 30).map((n) => ({
@@ -223,8 +235,8 @@ app.patch('/api/canvases/:id/state', async (c) => {
     ),
     ...edges.map((e) =>
       c.env.DB.prepare(
-        'INSERT INTO edges (id, canvas_id, source_node_id, target_node_id, label) VALUES (?, ?, ?, ?, ?)'
-      ).bind(e.id, canvasId, e.source, e.target, e.label ?? null)
+        'INSERT INTO edges (id, canvas_id, source_node_id, target_node_id, source_handle, target_handle, type, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      ).bind(e.id, canvasId, e.source, e.target, e.source_handle ?? null, e.target_handle ?? null, e.type ?? 'arrow', JSON.stringify(e.data ?? {}))
     ),
     c.env.DB.prepare("UPDATE canvases SET updated_at = datetime('now'), thumbnail_data = ? WHERE id = ?").bind(computeThumbnail(nodes), canvasId),
   ])
