@@ -76,8 +76,34 @@ type SaveEdge = {
 
 const app = new Hono<{ Bindings: Bindings }>()
 
+function resolveEmail(req: Request): string | null {
+  const headerEmail = req.headers.get('Cf-Access-Authenticated-User-Email')
+  if (headerEmail) return headerEmail
+
+  // Decode email from CF Access JWT cookie (cross-account setups where header isn't injected)
+  const jwt = req.headers.get('Cf-Access-Jwt-Assertion') ??
+    (req.headers.get('Cookie') ?? '').split(';').map(c => c.trim())
+      .find(c => c.startsWith('CF_Authorization='))?.split('=').slice(1).join('=')
+  if (jwt) {
+    try {
+      const payload = JSON.parse(atob(jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+      if (typeof payload.email === 'string') return payload.email
+    } catch { /* invalid jwt */ }
+  }
+
+  return null
+}
+
+// Require CF Access authentication on all API routes
+app.use('/api/*', async (c, next) => {
+  if (!resolveEmail(c.req.raw)) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+  return next()
+})
+
 function getEmail(req: Request): string {
-  return req.headers.get('Cf-Access-Authenticated-User-Email') ?? 'test@pulsead.io'
+  return resolveEmail(req)!
 }
 
 // Returns the requesting user's role on a canvas, or null if no access at all.

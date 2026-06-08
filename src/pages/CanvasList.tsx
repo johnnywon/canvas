@@ -39,17 +39,29 @@ export function CanvasList() {
   const [canvases, setCanvases] = useState<Canvas[]>([])
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(true)
+  const [authError, setAuthError] = useState(false)
   const [creating, setCreating] = useState(false)
   const [activeTag, setActiveTag] = useState<string | null>(null)
   const [confirming, setConfirming] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/me').then((r) => r.json() as Promise<{ email: string }>),
-      fetch('/api/canvases').then((r) => r.json() as Promise<Canvas[]>),
+      fetch('/api/me').then((r) => {
+        if (r.status === 401) throw new Error('auth')
+        if (!r.ok) throw new Error('error')
+        return r.json() as Promise<{ email: string }>
+      }),
+      fetch('/api/canvases').then((r) => {
+        if (r.status === 401) throw new Error('auth')
+        if (!r.ok) throw new Error('error')
+        return r.json() as Promise<Canvas[]>
+      }),
     ]).then(([me, list]) => {
       setEmail(me.email)
-      setCanvases(list)
+      setCanvases(Array.isArray(list) ? list : [])
+      setLoading(false)
+    }).catch((err: Error) => {
+      if (err.message === 'auth') setAuthError(true)
       setLoading(false)
     })
   }, [])
@@ -133,7 +145,26 @@ export function CanvasList() {
 
       {/* Body */}
       <main className="px-6 py-8 max-w-5xl mx-auto">
-        {loading ? (
+        {authError ? (
+          <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-gray-900 border border-gray-800 flex items-center justify-center">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-500">
+                <rect x="3" y="11" width="18" height="11" rx="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" strokeLinecap="round" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-gray-300 font-medium mb-1">Authentication required</p>
+              <p className="text-gray-600 text-sm">Please sign in through Cloudflare Access to continue.</p>
+            </div>
+            <a
+              href="/cdn-cgi/access/login"
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-semibold transition-colors cursor-pointer text-white"
+            >
+              Sign in
+            </a>
+          </div>
+        ) : loading ? (
           <div className="flex flex-col gap-10">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {[0, 1, 2].map((i) => (
@@ -147,7 +178,7 @@ export function CanvasList() {
               ))}
             </div>
           </div>
-        ) : canvases.length === 0 ? (
+        ) : !authError && canvases.length === 0 ? (
           <EmptyState onCreate={createCanvas} creating={creating} />
         ) : (
           <div className="flex flex-col gap-10">
